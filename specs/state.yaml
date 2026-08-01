@@ -19,8 +19,8 @@ bug_cycle:
   current_step: null     # 1-5 for bug fix workflow
   completed_steps: []    # completed step numbers
 epic:
-  current_epic_id: null
-  current_story_id: null
+  current_epic_id: e01
+  current_story_id: e01s01
 ```
 
 ## Usage
