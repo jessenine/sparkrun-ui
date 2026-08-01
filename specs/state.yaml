@@ -6,21 +6,21 @@ Session state and workflow tracking for bigpowers.
 
 ```yaml
 workflow_mode: solo-git  # team-pr | solo-git (default)
-active_flow: planning        # build_epic | fix_bug | planning | null
+active_flow: build_epic        # build_epic | fix_bug | planning | null
 git:
   branch: main
   commit: 279750e
   status: clean          # clean | dirty
 handoff:
-  next_skill: kickoff-branch       # skill name for next step
+  next_skill: develop-tdd       # skill name for next step
 metrics:
   story_start: null      # ISO 8601 timestamp (informational only)
 bug_cycle:
   current_step: null     # 1-5 for bug fix workflow
   completed_steps: []    # completed step numbers
 epic:
-  current_epic_id: null
-  current_story_id: null
+  current_epic_id: e01
+  current_story_id: e01s01
 ```
 
 ## Usage
