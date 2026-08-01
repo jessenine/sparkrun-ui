@@ -1,18 +1,38 @@
-story_id: s01
-epic_id: e01
+story_id: e01s01
 title: Fix normalizeMonitorOutput to correctly extract and flatten sample metrics
+status: failing
 bcps: 3
-status: pending
+risk: P0
+context: infra
+delta: MODIFIED
 tasks:
   - id: t01
     description: Add debug logging to normalizeMonitorOutput to trace input/output
-    verify: pnpm dev && curl -s http://localhost:5678/api/debug-monitor
-    status: pending
+    verify: pnpm dev && curl -s http://localhost:5678/api/debug-monitor | grep -E "normalizeMonitorOutput|normalized"
+    risk: P3
+    status: failing
+    allure:
+      severity: minor
+      categories:
+        - "Monitoring"
+        - "Debug"
   - id: t02
-    description: Fix normalizeMonitorOutput to correctly extract metrics from sample
+    description: Verify normalizeMonitorOutput correctly extracts metrics from valid sample data
     verify: pnpm test lib/rpc/procedures/monitor.test.ts
-    status: pending
+    risk: P0
+    status: failing
+    allure:
+      severity: critical
+      categories:
+        - "Monitoring"
+        - "Fix"
   - id: t03
     description: Verify metrics display correctly in dashboard
-    verify: pnpm dev && verify-dashboard-metrics.sh
-    status: pending
+    verify: pnpm dev && curl -s http://localhost:5678/dashboard | grep -E "CPU|GPU|Memory|Power" | head -4
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "Monitoring"
+        - "UI"

@@ -1,18 +1,38 @@
-story_id: s02
-epic_id: e01
+story_id: e01s02
 title: Connect dashboard to live metrics stream via oRPC
+status: failing
 bcps: 5
-status: pending
+risk: P1
+context: infra
+delta: MODIFIED
 tasks:
   - id: t01
-    description: Review existing streamSparkrunNdjson implementation
+    description: Review existing streamSparkrunNdjson implementation in lib/sparkrun.ts
     verify: pnpm test lib/sparkrun.test.ts
-    status: pending
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "Monitoring"
+        - "Streaming"
   - id: t02
-    description: Ensure eventIterator correctly handles async iterator
+    description: Verify monitor.stream handler correctly yields normalized metrics
     verify: pnpm test lib/rpc/procedures/monitor.test.ts
-    status: pending
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "Monitoring"
+        - "Fix"
   - id: t03
-    description: Verify dashboard receives live updates every 2-3 seconds
-    verify: pnpm dev && verify-live-updates.sh
-    status: pending
+    description: Verify AggregateStats component receives live updates
+    verify: pnpm dev && curl -s http://localhost:5678/dashboard | grep -E "CPU|GPU|Memory"
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "Monitoring"
+        - "UI"

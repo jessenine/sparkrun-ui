@@ -1,18 +1,38 @@
-story_id: s03
-epic_id: e01
+story_id: e01s03
 title: Aggregate stats display shows correct values from normalized metrics
+status: failing
 bcps: 3
-status: pending
+risk: P1
+context: ui
+delta: MODIFIED
 tasks:
   - id: t01
     description: Review AggregateStats component metric aggregation logic
     verify: pnpm test app/components/dashboard/AggregateStats.test.tsx
-    status: pending
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "Monitoring"
+        - "UI"
   - id: t02
     description: Verify num() function handles empty values correctly
     verify: pnpm test app/components/dashboard/AggregateStats.test.tsx
-    status: pending
+    risk: P2
+    status: failing
+    allure:
+      severity: normal
+      categories:
+        - "Monitoring"
+        - "Fix"
   - id: t03
-    description: Manual verification of dashboard metrics display
-    verify: pnpm dev && verify-dashboard-metrics.sh
-    status: pending
+    description: Verify dashboard shows real averages for all metrics
+    verify: pnpm dev && curl -s http://localhost:5678/dashboard | grep -E "CPU|GPU|Memory|Power" | head -4
+    risk: P1
+    status: failing
+    allure:
+      severity: high
+      categories:
+        - "Monitoring"
+        - "UI"
