@@ -12,7 +12,7 @@ Release plan - versioned index of epics and their order.
 
 | ID | Title | WSJF | BCP | Status | Stories |
 |----|-------|------|-----|--------|---------|
-| e01 | Dashboard Live Metrics | 32 | 4 | planned | [s01, s02, s03, s04] |
+| e01 | Dashboard Live Metrics | 32 | 5 | planned | [s01, s02, s03, s04, s05] |
 | e02 | Launch Recipe Wizard | 28 | 4 | planned | [s04, s05, s06, s07] |
 | e03 | Recipes Browser | 25 | 3 | planned | [s08, s09] |
 | e04 | Cluster Monitor | 22 | 3 | planned | [s10, s11] |
@@ -29,7 +29,8 @@ Release plan - versioned index of epics and their order.
 - s01: Implement metrics data fetching and normalization
 - s02: Build aggregate stats display component
 - s03: Connect to live streaming endpoint
-- s04: Individual metric graphs per host (NEW)
+- s04: Individual metric graphs per host
+- s05: Process utility: Top 5 processes per host (NEW)
 
 ### e02 - Launch Recipe Wizard (WSJF: 28)
 **Priority:** High

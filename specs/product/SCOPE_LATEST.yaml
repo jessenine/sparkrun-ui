@@ -9,6 +9,7 @@ scope:
     - Launch and monitor inference workloads on NVIDIA DGX Spark clusters
     - Browse and filter recipes from multiple registries
     - Live dashboard with per-host metrics (CPU, GPU, memory, power, temperatures)
+    - Live dashboard with top 5 processes per host (process utilization summary)
     - YAML editor for recipe configuration with live validation
     - Log tailing for running workloads
     - Chat interface for interacting with running models

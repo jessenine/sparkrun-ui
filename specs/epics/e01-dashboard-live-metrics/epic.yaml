@@ -6,7 +6,7 @@
 epic_id: e01
 title: Dashboard Live Metrics
 wsjf: 32
-bcp: 4
+bcp: 5
 status: planned
 stories:
   - story_id: s01
@@ -19,6 +19,9 @@ stories:
     bcp: 3
     delta: MODIFIED
   - story_id: s04
+    bcp: 5
+    delta: ADDED
+  - story_id: s05
     bcp: 5
     delta: ADDED
 ```
@@ -58,3 +61,24 @@ Real-time cluster monitoring with live-updating metrics dashboard. Fixes the bug
 **Expected behavior:** Dashboard shows real averages across all hosts.
 
 **Verification:** `pnpm test app/components/dashboard/AggregateStats.test.tsx`
+
+### s05 - Process utility: Top 5 processes per host (BCP: 5, delta: ADDED)
+
+**Title:** Show top 5 processes per host in the Host metrics section
+
+**Current behavior:** Host metrics only show CPU, GPU, memory, power, and temperature aggregates.
+
+**Expected behavior:** Each host's metrics card includes a "Top processes" section showing the 5 most resource-intensive processes (similar to `top` or `ps aux` summary).
+
+**Features:**
+- Display top 5 processes by CPU or memory usage (configurable toggle)
+- Show: process name, CPU%, memory usage, PID
+- Clicking a process name opens a modal with full `ps aux` output
+- Data refreshes at the same interval as host metrics (currently 2s)
+
+**Technical notes:**
+- May need to extend sparkrun cluster monitor or add a new RPC endpoint for per-process metrics
+- Consider performance: avoid fetching full `ps aux` for every process every 2s
+- Can start with periodic sampling (e.g., every 10s) if performance is a concern
+
+**Verification:** `pnpm test app/components/dashboard/ProcessList.test.tsx`

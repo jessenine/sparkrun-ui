@@ -1,0 +1,43 @@
+# e01s05-tasks.yaml
+
+tasks:
+  - title: Add process metrics RPC endpoint
+    description: Add a new RPC endpoint `/rpc/monitor/processes` that returns per-process utilization data from `ps aux`
+    deliverables:
+      - `lib/rpc/procedures/monitor.ts` - Add `processes` handler
+      - `lib/rpc/router.ts` - Register new route
+      - Tests for the new endpoint
+    estimated_hours: 3
+
+  - title: Extend sparkrun cluster monitor output (if needed)
+    description: Determine if sparkrun can provide per-process data, or if we need to run `ps aux` directly
+    deliverables:
+      - Decision document in `specs/tech-architecture/`
+      - Any necessary backend extensions
+    estimated_hours: 2
+
+  - title: Build ProcessList component
+    description: Create a new React component to display top 5 processes in a dashboard card
+    deliverables:
+      - `app/components/dashboard/ProcessList.tsx`
+      - Storybook story for the component
+      - Unit tests
+    estimated_hours: 4
+
+  - title: Integrate process list into DashboardLive
+    description: Add process list to each host's metrics card in the dashboard
+    deliverables:
+      - Update `DashboardLive.tsx` to fetch and display process data
+      - Add toggle to switch between CPU/memory sorting
+      - Add modal for full process details
+    estimated_hours: 3
+
+  - title: Performance optimization
+    description: Optimize the process data fetching to avoid performance issues
+    deliverables:
+      - Document performance characteristics
+      - Add caching or sampling if needed
+      - Benchmark with realistic cluster sizes
+    estimated_hours: 2
+
+total_estimated_hours: 14
