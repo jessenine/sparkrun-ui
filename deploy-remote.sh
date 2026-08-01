@@ -5,7 +5,7 @@
 set -e
 
 echo "Stopping current service..."
-ssh jix@192.168.1.77 "cd /home/jix/sparkrun-ui && docker compose down ui"
+ssh jix@192.168.1.77 "cd /home/jix/sparkrun-ui && docker compose down sparkrun-ui"
 
 echo "Copying dist files..."
 scp dist.tar.gz jix@192.168.1.77:/home/jix/sparkrun-ui/dist.tar.gz
@@ -15,8 +15,8 @@ ssh jix@192.168.1.77 "
   cd /home/jix/sparkrun-ui
   tar xzf dist.tar.gz
   rm dist.tar.gz
-  docker compose build --no-cache ui
-  docker compose up -d ui
+  docker compose build --no-cache sparkrun-ui
+  docker compose up -d sparkrun-ui
   docker image prune -f
 "
 
