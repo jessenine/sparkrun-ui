@@ -2,31 +2,78 @@
 
 Release plan - versioned index of epics and their order.
 
-## Schema
+## Current Status
 
-```yaml
-version: "0.2.0"           # Target release version
-target_date: null          # Planned release date (optional)
-epics:
-  - id: e01
-    title: Short title
-    wsjf: 10               # WSJF score (higher = higher priority)
-    bcp: 5                 # Big Commit Points (story count)
-    status: planned        # planned | in-progress | complete
-    stories: []            # Story IDs included in this epic
-```
+- **Version:** 0.2.0
+- **Target Date:** TBD
+- **Active epic:** None yet
 
-## Usage
+## Epics
 
-- `version` is the target release version
-- `epics` array is ordered by WSJF (descending)
-- Each epic has a unique `id` (e.g., e01, e02)
-- `wsjf` = Weighted Shortest Job First score
-- `bcp` = Big Commit Points (estimate of story count)
-- `status` tracks epic progress
+| ID | Title | WSJF | BCP | Status | Stories |
+|----|-------|------|-----|--------|---------|
+| e01 | Dashboard Live Metrics | 30 | 3 | planned | [s01, s02, s03] |
+| e02 | Launch Recipe Wizard | 28 | 4 | planned | [s04, s05, s06, s07] |
+| e03 | Recipes Browser | 25 | 3 | planned | [s08, s09] |
+| e04 | Cluster Monitor | 22 | 3 | planned | [s10, s11] |
+| e05 | Logs Tail | 20 | 2 | planned | [s12] |
+| e06 | Chat Interface | 18 | 2 | planned | [s13] |
+| e07 | Benchmarks | 15 | 3 | planned | [s14, s15] |
+
+## Epic Details
+
+### e01 - Dashboard Live Metrics (WSJF: 30)
+**Priority:** Highest
+**Description:** Real-time cluster monitoring with live-updating metrics dashboard
+**Stories:**
+- s01: Implement metrics data fetching and normalization
+- s02: Build aggregate stats display component
+- s03: Connect to live streaming endpoint
+
+### e02 - Launch Recipe Wizard (WSJF: 28)
+**Priority:** High
+**Description:** Step-by-step workflow for selecting and launching recipes
+**Stories:**
+- s04: Recipe selection with filtering
+- s05: YAML editor with validation
+- s06: Command preview
+- s07: Launch execution and log tail
+
+### e03 - Recipes Browser (WSJF: 25)
+**Priority:** High
+**Description:** Browse and search recipes from multiple registries
+**Stories:**
+- s08: Registry listing and selection
+- s09: Recipe filtering by model/runtime
+
+### e04 - Cluster Monitor (WSJF: 22)
+**Priority:** Medium
+**Description:** Per-host resource monitoring
+**Stories:**
+- s10: Host metrics display
+- s11: Sparkline history for each metric
+
+### e05 - Logs Tail (WSJF: 20)
+**Priority:** Medium
+**Description:** Live log streaming for running workloads
+**Stories:**
+- s12: ANSI color rendering and streaming
+
+### e06 - Chat Interface (WSJF: 18)
+**Priority:** Medium
+**Description:** Interactive chat with running models
+**Stories:**
+- s13: Chat UI with model selection
+
+### e07 - Benchmarks (WSJF: 15)
+**Priority:** Low
+**Description:** Benchmark history and new benchmark runs
+**Stories:**
+- s14: Benchmark history view
+- s15: New benchmark execution
 
 ## Notes
 
 - WSJF ordering determines release priority
-- BCP helps with capacity planning
+- BCP = Big Commit Points (story count estimate)
 - Use `plan-release` skill to manage this file

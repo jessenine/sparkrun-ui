@@ -5,13 +5,37 @@ Discover-phase checklist for planning workflow.
 ## Schema
 
 ```yaml
-survey-context: true       # completed
-scope-work: false          # not started
-research-first: false      # not started
-elaborate-spec: false      # not started
-plan-release: false        # not started
-slice-tasks: false         # not started
+workflows:
+  survey-context:
+    required: true
+    status: done
+  scope-work:
+    required: true
+    status: done
+  research-first:
+    required: false
+    status: skipped
+    note: "No external dependencies"
+  elaborate-spec:
+    required: false
+    status: skipped
+    note: "Can be skipped for this project"
+  plan-release:
+    required: true
+    status: done
+  slice-tasks:
+    required: true
+    status: pending
 ```
+
+## Status
+
+- `survey-context`: **done** (conventions just established)
+- `scope-work`: **done** (scope defined in SCOPE_LATEST.yaml)
+- `research-first`: **skipped** (no external dependencies)
+- `elaborate-spec`: **skipped** (can be skipped for this project)
+- `plan-release`: **done** (7 epics sequenced by WSJF)
+- `slice-tasks`: **pending** (next step)
 
 ## Usage
 
