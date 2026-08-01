@@ -5,19 +5,22 @@
 ```yaml
 epic_id: e01
 title: Dashboard Live Metrics
-wsjf: 30
-bcp: 3
+wsjf: 32
+bcp: 4
 status: planned
 stories:
   - story_id: s01
     bcp: 3
     delta: MODIFIED
   - story_id: s02
-    bcp: 5
+    bcp: 3
     delta: MODIFIED
   - story_id: s03
     bcp: 3
     delta: MODIFIED
+  - story_id: s04
+    bcp: 5
+    delta: ADDED
 ```
 
 ## Description

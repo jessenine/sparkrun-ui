@@ -20,7 +20,7 @@ bug_cycle:
   completed_steps: []    # completed step numbers
 epic:
   current_epic_id: e01
-  current_story_id: e01s01
+  current_story_id: e01s04
 ```
 
 ## Usage

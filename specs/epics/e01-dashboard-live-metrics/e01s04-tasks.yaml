@@ -1,0 +1,49 @@
+# Tasks for e01s04 - Individual metric graphs per host
+
+## t01 - Design graph component structure
+
+- [ ] Create `app/components/dashboard/SparklineGraph.tsx` component
+- [ ] Accept props: `title`, `data`, `color`, `unit` (e.g., "GPU utilization %")
+- [ ] Use react-easy-chart or similar lightweight chart library
+- [ ] Auto-scale Y-axis to min/max of displayed data
+- [ ] Add subtle grid lines and thin stroke for sparkline look
+
+**Verify:** `pnpm test app/components/dashboard/SparklineGraph.test.tsx`
+
+## t02 - Add metric data history state
+
+- [ ] Extend `DashboardLive.tsx` to maintain history arrays for each metric per host
+- [ ] Add state: `metricHistory: Record<string, Record<string, number[]>>`
+- [ ] Keys: `hostIp -> metricName -> [values...]`
+- [ ] Limit history to last 30 data points (15 seconds at 2-3s intervals)
+- [ ] When new metrics arrive, push to history and trim old values
+
+**Verify:** `pnpm test lib/metrics.test.ts` (new test file)
+
+## t03 - Update DashboardLive to render graphs
+
+- [ ] For each host, render SparklineGraph components for:
+  - CPU usage %
+  - GPU utilization %
+  - Memory usage %
+  - Power draw (W)
+  - Temperature (C)
+- [ ] Position graphs in the host card layout (below current stats)
+- [ ] Ensure graphs update on each metrics refresh
+
+**Verify:** `pnpm dev` - open dashboard, verify sparklines appear and update
+
+## t04 - Test and verify
+
+- [ ] Run full test suite: `pnpm test`
+- [ ] Run typecheck: `pnpm typecheck`
+- [ ] Manual: Verify all graphs update live, no lag
+- [ ] Manual: Verify graphs auto-scale correctly for different value ranges
+
+**Verify:** `pnpm test && pnpm typecheck`
+
+## Risk assessment
+
+- **Risk level:** LOW
+- **Impact:** New feature, no existing functionality affected
+- **Rollback:** Remove s04 epic entry, revert graph component
