@@ -1,0 +1,68 @@
+# Convenience compose file. `docker compose up -d` and you're done.
+#
+# This image does NOT bundle sparkrun. Instead it bind-mounts the host's
+# uv-installed sparkrun into the container so the UI always uses whatever
+# version you have on the host. Required prereq:
+#
+#   uv tool install sparkrun           # on the host, if you haven't already
+#
+# Defaults assume a single-host setup where the UI runs on the same machine
+# as the DGX Spark and talks to a 127.0.0.1 cluster. For a multi-host setup
+# point your sparkrun cluster definitions at the LAN IPs and switch to a
+# regular bridge network (comment out `network_mode: host` and uncomment the
+# `ports:` block).
+services:
+  sparkrun-ui:
+    image: ghcr.io/mcampa/sparkrun-ui:latest
+    # `:latest` is mutable — always re-check the registry so `docker compose up`
+    # picks up new builds instead of reusing a stale local cache.
+    pull_policy: always
+    container_name: sparkrun-ui
+    restart: unless-stopped
+
+    # `host` networking is required when the cluster contains 127.0.0.1 — the
+    # container's loopback otherwise points back at itself, not the host.
+    network_mode: host
+    # ports:
+    #   - "5678:5678"
+
+    environment:
+      - NODE_ENV=production
+      - PORT=5678
+      - HOST_USER=${USER}
+      # Forward the host's HF_TOKEN so sparkrun's HF Hub calls (VRAM
+      # estimation, model metadata) and any benchmark client that hits the
+      # Hub are authenticated. No-op when unset on the host.
+      - HF_TOKEN=${HF_TOKEN:-}
+
+    volumes:
+      # --- bind-mounted sparkrun from the host ---
+      # The shim (a Python script). Lands on PATH in the container.
+      - ${HOME}/.local/bin/sparkrun:/usr/local/bin/sparkrun:ro
+      # The uv-managed venv with sparkrun's site-packages. The shim's shebang
+      # hardcodes this absolute path, so we mount it at the SAME path inside
+      # the container (note `${HOME}` on both sides — docker-compose
+      # interpolates from the host environment).
+      - ${HOME}/.local/share/uv/tools/sparkrun:${HOME}/.local/share/uv/tools/sparkrun:ro
+
+      # --- host docker access ---
+      # sparkrun runs `docker` locally (not via SSH) for any cluster host that
+      # resolves to 127.0.0.1, so the UI container needs access to the host's
+      # docker daemon. The entrypoint syncs the in-container group to the
+      # socket's host GID at start, so this works regardless of the host's
+      # docker GID. Required for single-host (127.0.0.1) clusters; harmless
+      # otherwise.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+      # --- sparkrun state, shared with the host CLI ---
+      # SSH keys that sparkrun uses to reach cluster hosts. Read-only.
+      - ${HOME}/.ssh:/home/app/.ssh:ro
+      # sparkrun config (saved clusters, registries) lives here.
+      - ${HOME}/.config/sparkrun:/home/app/.config/sparkrun
+      # sparkrun cache (registries, jobs, benchmarks) — bind-mount so results
+      # survive container restarts AND so the host CLI and the UI share state.
+      - ${HOME}/.cache/sparkrun:/home/app/.cache/sparkrun
+      # Share the host's huggingface auth + download cache so the container
+      # inherits `huggingface-cli login` and doesn't re-download model
+      # metadata for every benchmark.
+      - ${HOME}/.cache/huggingface:/home/app/.cache/huggingface
