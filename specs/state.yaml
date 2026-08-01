@@ -12,7 +12,7 @@ git:
   commit: 279750e
   status: clean          # clean | dirty
 handoff:
-  next_skill: develop-tdd       # skill name for next step
+  next_skill: null       # no immediate next skill - wait for user input on s04 implementation
 metrics:
   story_start: null      # ISO 8601 timestamp (informational only)
 bug_cycle:
