@@ -5,14 +5,14 @@
 set -e
 
 echo "Stopping current service..."
-ssh shade@192.168.1.77 "cd /home/shade/Pidev_proj/sparkrun-ui && docker compose down ui"
+ssh jix@192.168.1.77 "cd /home/jix/Pidev_proj/sparkrun-ui && docker compose down ui"
 
 echo "Copying dist files..."
-scp dist.tar.gz shade@192.168.1.77:/home/shade/Pidev_proj/sparkrun-ui/dist.tar.gz
+scp dist.tar.gz jix@192.168.1.77:/home/jix/Pidev_proj/sparkrun-ui/dist.tar.gz
 
 echo "Deploying on remote host..."
-ssh shade@192.168.1.77 "
-  cd /home/shade/Pidev_proj/sparkrun-ui
+ssh jix@192.168.1.77 "
+  cd /home/jix/Pidev_proj/sparkrun-ui
   tar xzf dist.tar.gz
   rm dist.tar.gz
   docker compose build --no-cache ui
