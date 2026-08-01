@@ -24,6 +24,7 @@ stories:
   - story_id: s05
     bcp: 5
     delta: ADDED
+    status: complete
 ```
 
 ## Description
