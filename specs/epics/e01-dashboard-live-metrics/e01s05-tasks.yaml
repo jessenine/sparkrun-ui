@@ -10,13 +10,16 @@ tasks:
       - Tests for the new endpoint
     status: passing
     estimated_hours: 3
+    completed: true
 
   - title: Extend sparkrun cluster monitor output (if needed)
     description: Determine if sparkrun can provide per-process data, or if we need to run `ps aux` directly
     deliverables:
       - Decision document in `specs/tech-architecture/`
       - Any necessary backend extensions
+    status: passing
     estimated_hours: 2
+    completed: true
 
   - title: Build ProcessList component
     description: Create a new React component to display top 5 processes in a dashboard card
@@ -24,7 +27,9 @@ tasks:
       - `app/components/dashboard/ProcessList.tsx`
       - Storybook story for the component
       - Unit tests
+    status: passing
     estimated_hours: 4
+    completed: true
 
   - title: Integrate process list into DashboardLive
     description: Add process list to each host's metrics card in the dashboard
@@ -32,7 +37,9 @@ tasks:
       - Update `DashboardLive.tsx` to fetch and display process data
       - Add toggle to switch between CPU/memory sorting
       - Add modal for full process details
+    status: passing
     estimated_hours: 3
+    completed: true
 
   - title: Performance optimization
     description: Optimize the process data fetching to avoid performance issues
@@ -40,6 +47,8 @@ tasks:
       - Document performance characteristics
       - Add caching or sampling if needed
       - Benchmark with realistic cluster sizes
+    status: passing
     estimated_hours: 2
+    completed: true
 
 total_estimated_hours: 14
