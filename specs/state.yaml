@@ -16,7 +16,7 @@ handoff:
   completed_skills: []
 metrics:
   story_start: "2026-08-01T22:40:00Z"  # e01s05 starts
-  story_progress: 40  # 2/5 tasks complete (normalize + RPC endpoint)
+  story_progress: 80  # 4/5 tasks complete (normalize + RPC + component + integration)
 bug_cycle:
   current_step: null
   completed_steps: []    # completed step numbers
