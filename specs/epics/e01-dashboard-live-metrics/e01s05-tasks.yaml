@@ -4,9 +4,11 @@ tasks:
   - title: Add process metrics RPC endpoint
     description: Add a new RPC endpoint `/rpc/monitor/processes` that returns per-process utilization data from `ps aux`
     deliverables:
+      - `lib/rpc/procedures/processes.ts` - Implement normalizeProcessList function
       - `lib/rpc/procedures/monitor.ts` - Add `processes` handler
       - `lib/rpc/router.ts` - Register new route
       - Tests for the new endpoint
+    status: passing
     estimated_hours: 3
 
   - title: Extend sparkrun cluster monitor output (if needed)

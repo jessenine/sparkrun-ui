@@ -50,6 +50,7 @@ export const router = {
   },
   monitor: {
     stream: monitor.stream,
+    processes: monitor.processes,
   },
   chat: {
     stream: chat.stream,

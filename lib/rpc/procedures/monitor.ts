@@ -1,6 +1,7 @@
 import { os, eventIterator } from "@orpc/server";
 import { z } from "zod";
 import { streamSparkrunNdjson } from "@/lib/sparkrun";
+import { normalizeProcessList } from "./processes";
 
 const HostMetricsSchema = z
   .object({
@@ -89,4 +90,39 @@ export const stream = os
       console.log("[monitor.stream] Normalized:", JSON.stringify(normalized));
       yield normalized;
     }
+  });
+
+export const processes = os
+  .input(
+    z.object({
+      cluster: z.string().optional(),
+      hosts: z.array(z.string()).optional(),
+    }).optional(),
+  )
+  .output(z.object({
+    timestamp: z.number(),
+    processes: z.array(z.object({
+      user: z.string(),
+      pid: z.number(),
+      cpu: z.number(),
+      mem: z.number(),
+      command: z.string(),
+    })),
+  }))
+  .handler(async function ({ input, signal }) {
+    const args = ["cluster", "monitor", "--json", "--interval", "2"];
+    if (input?.cluster) args.push("--cluster", input.cluster);
+    else if (input?.hosts?.length) args.push("--hosts", input.hosts.join(","));
+    
+    // Run the command once and collect output
+    const output = await streamSparkrunNdjson<string>(args, { signal });
+    const allLines = [];
+    for await (const line of output) {
+      if (signal?.aborted) break;
+      allLines.push(line);
+    }
+    
+    // Parse the combined output
+    const fullOutput = allLines.join("\n");
+    return normalizeProcessList(fullOutput);
   });
