@@ -12,7 +12,7 @@ docker exec sparkrun-ui sparkrun cluster update default -u jix
 
 echo "Adding host keys for 192.168.1.22 and 127.0.0.1 to root's known_hosts..."
 docker exec sparkrun-ui mkdir -p /root/.ssh
-docker exec sparkrun-ui sh -c 'ssh-keyscan -H 192.168.1.22 -H 127.0.0.1 2>&1 | tee /root/.ssh/known_hosts'
+docker exec sparkrun-ui sh -c 'ssh-keyscan 192.168.1.22 127.0.0.1 2>&1 | tee /root/.ssh/known_hosts'
 
 echo "Verifying configuration..."
 docker exec sparkrun-ui sparkrun cluster show default

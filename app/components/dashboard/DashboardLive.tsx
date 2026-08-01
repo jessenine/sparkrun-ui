@@ -10,6 +10,7 @@ import { Badge } from "@/app/components/ui/Badge";
 import { Button } from "@/app/components/ui/Button";
 import { WorkloadCard } from "./WorkloadCard";
 import { AggregateStats } from "./AggregateStats";
+import { SparklineGraph } from "./SparklineGraph";
 
 function formatHostError(value: unknown): string {
   if (typeof value === "string") return value;
@@ -29,6 +30,13 @@ export function DashboardLive({
   const [status, setStatus] = useState<ClusterStatus>(initial);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [connected, setConnected] = useState(true);
+  
+  // Metrics history per host: hostIp -> metricName -> [values]
+  const [metricHistory, setMetricHistory] = useState<Record<string, Record<string, number[]>>>(
+    {}
+  );
+  
+  const MAX_HISTORY = 15; // 15 data points at 2-3s intervals = ~30-45 seconds
 
   useEffect(() => {
     const ac = new AbortController();
@@ -45,6 +53,61 @@ export function DashboardLive({
         if (!cancelled) setConnected(false);
         if (!(err instanceof DOMException && err.name === "AbortError")) {
           console.error("[status.stream]", err);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, []);
+
+  // Subscribe to monitor stream for per-host metrics
+  useEffect(() => {
+    const ac = new AbortController();
+    let cancelled = false;
+    (async () => {
+      try {
+        const iter = await rpc.monitor.stream({ intervalSec: 2 }, { signal: ac.signal });
+        for await (const next of iter) {
+          if (cancelled) break;
+          // Update metric history per host
+          setMetricHistory((prev) => {
+            const nextHistory = { ...prev };
+            
+            // next is a Tick with hosts Record<string, HostMetrics>
+            const hosts = (next as { hosts: Record<string, Record<string, string | undefined>> }).hosts;
+            
+            for (const [hostIp, metrics] of Object.entries(hosts)) {
+              if (!nextHistory[hostIp]) {
+                nextHistory[hostIp] = {};
+              }
+              
+              // Update each metric history
+              const hostHistory = nextHistory[hostIp];
+              for (const [metricName, value] of Object.entries(metrics)) {
+                if (value === undefined) continue;
+                const numVal = parseFloat(value);
+                if (!Number.isFinite(numVal)) continue;
+                
+                const history = hostHistory[metricName] || [];
+                const newHistory = [...history, numVal];
+                
+                // Keep only last N values
+                if (newHistory.length > MAX_HISTORY) {
+                  newHistory.shift();
+                }
+                
+                hostHistory[metricName] = newHistory;
+              }
+            }
+            
+            return nextHistory;
+          });
+        }
+      } catch (err) {
+        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
+          console.error("[monitor.stream]", err);
         }
       }
     })();
@@ -91,6 +154,70 @@ export function DashboardLive({
       </div>
 
       <AggregateStats />
+
+      {/* Individual host metrics with sparklines */}
+      {metricHistory && Object.keys(metricHistory).length > 0 && (
+        <div className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Host metrics
+            <span className="ml-2 text-xs text-zinc-500">
+              ({Object.keys(metricHistory).length} hosts)
+            </span>
+          </h2>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {Object.entries(metricHistory).map(([hostIp, history]) => (
+              <Card key={hostIp}>
+                <CardBody className="p-4">
+                  <div className="mb-3 flex items-baseline justify-between">
+                    <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {hostIp}
+                    </div>
+                    <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" title="online" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <SparklineGraph
+                      title="CPU"
+                      data={history.cpu_usage_pct || []}
+                      color="sky"
+                      unit="%"
+                    />
+                    <SparklineGraph
+                      title="GPU"
+                      data={history.gpu_util_pct || []}
+                      color="purple"
+                      unit="%"
+                    />
+                    <SparklineGraph
+                      title="Mem"
+                      data={history.mem_used_pct || []}
+                      color="green"
+                      unit="%"
+                    />
+                    <SparklineGraph
+                      title="Power"
+                      data={history.gpu_power_w || []}
+                      color="amber"
+                      unit="W"
+                    />
+                    <SparklineGraph
+                      title="Temp"
+                      data={history.cpu_temp_c || []}
+                      color="red"
+                      unit="°C"
+                    />
+                    <SparklineGraph
+                      title="GPU Temp"
+                      data={history.gpu_temp_c || []}
+                      color="red"
+                      unit="°C"
+                    />
+                  </div>
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {Object.keys(status.errors).length > 0 && (
         <Card className="border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
