@@ -24,9 +24,10 @@ docker exec sparkrun-ui sed -i 's|/home/jix/.config/sparkrun/ssh/sparkrun_ed2551
 docker exec sparkrun-ui sparkrun cluster update default -u jix
 ```
 
-### 3. Add 127.0.0.1 host key
+### 3. Add host keys for 127.0.0.1 and 192.168.1.22
 ```bash
-docker exec sparkrun-ui sh -c 'ssh-keyscan -H 127.0.0.1 2>&1 | tee -a /root/.ssh/known_hosts'
+docker exec sparkrun-ui mkdir -p /root/.ssh
+docker exec sparkrun-ui sh -c 'ssh-keyscan -H 192.168.1.22 -H 127.0.0.1 2>&1 | tee /root/.ssh/known_hosts'
 ```
 
 ## Verification
@@ -66,6 +67,19 @@ A script `scripts/fix-ssh-config.sh` is provided to apply all fixes automaticall
 ```bash
 ssh jix@192.168.1.77 "bash /home/jix/sparkrun-ui/scripts/fix-ssh-config.sh"
 ```
+
+### Important: SSH Host Keys
+
+The sparkrun-ui container runs as root, but the SSH host keys for remote hosts must be added to `/root/.ssh/known_hosts`. Both `127.0.0.1` and `192.168.1.22` need to be scanned:
+
+```bash
+docker exec sparkrun-ui mkdir -p /root/.ssh
+docker exec sparkrun-ui sh -c 'ssh-keyscan -H 192.168.1.22 -H 127.0.0.1 2>&1 | tee /root/.ssh/known_hosts'
+```
+
+This step is NOT included in the `scripts/fix-ssh-config.sh` because:
+- It must be run after the container is created/restarted
+- The SSH keyscan command needs to target both hosts explicitly
 
 ## Notes
 
