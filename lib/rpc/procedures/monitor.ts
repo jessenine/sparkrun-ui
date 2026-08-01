@@ -29,37 +29,41 @@ const TickSchema = z.object({
   hosts: z.record(z.string(), HostMetricsSchema),
 });
 
-// sparkrun cluster monitor returns data in a different shape:
-// { timestamp, hosts: [{ host, sample: { ... }, ... }] }
-// but the UI expects:
-// { timestamp, hosts: { "host": { ...sample keys... } } }
-function normalizeMonitorOutput(raw: unknown): z.infer<typeof TickSchema> {
+// Export for testing
+export function normalizeMonitorOutput(raw: unknown): z.infer<typeof TickSchema> {
   const tick = raw as Record<string, unknown>;
   const ts = typeof tick.timestamp === "number" ? tick.timestamp : 0;
-  const hostsList = Array.isArray(tick.hosts) ? tick.hosts : [];
+  const hostsInput = tick.hosts;
 
   const hosts: Record<string, z.infer<typeof HostMetricsSchema>> = {};
-  for (const h of hostsList) {
-    if (!h || typeof h !== "object") continue;
-    const entry = h as Record<string, unknown>;
-    // Handle null samples gracefully - use an empty object instead of skipping
-    const sampleRaw = entry.sample;
-    const sample = sampleRaw !== null && sampleRaw !== undefined && typeof sampleRaw === "object"
-      ? sampleRaw as Record<string, string | undefined>
-      : {};
-    const hostKey = (entry.host as string) || "unknown";
-    // Flatten sample to top level so the UI can read m.gpu_util_pct etc.
-    hosts[hostKey] = sample as z.infer<typeof HostMetricsSchema>;
+
+  // Handle both array format [{ host, sample, ... }] and flat record format { "host": { ... } }
+  if (Array.isArray(hostsInput)) {
+    // Array format: [{ host, sample, ... }, ...]
+    for (const h of hostsInput) {
+      if (!h || typeof h !== "object") continue;
+      const entry = h as Record<string, unknown>;
+      // Handle null/undefined samples gracefully - use an empty object instead of skipping
+      const sampleRaw = entry.sample;
+      const sample = sampleRaw !== null && sampleRaw !== undefined && typeof sampleRaw === "object"
+        ? sampleRaw as Record<string, string | undefined>
+        : {};
+      const hostKey = (entry.host as string) || "unknown";
+      hosts[hostKey] = sample as z.infer<typeof HostMetricsSchema>;
+    }
+  } else if (hostsInput && typeof hostsInput === "object" && !Array.isArray(hostsInput)) {
+    // Flat record format: { "host": { ...metrics... } }
+    for (const [hostKey, hostData] of Object.entries(hostsInput)) {
+      if (hostData && typeof hostData === "object") {
+        hosts[hostKey] = hostData as z.infer<typeof HostMetricsSchema>;
+      }
+    }
   }
 
-  console.log("[normalizeMonitorOutput] raw.hosts type:", Array.isArray(tick.hosts) ? "array" : typeof tick.hosts);
-  console.log("[normalizeMonitorOutput] raw.hosts count:", hostsList.length);
-  console.log("[normalizeMonitorOutput] normalized hosts:", Object.keys(hosts).length ? hosts : "(empty)");
-  for (const [host, data] of Object.entries(hosts)) {
-    console.log(`[normalizeMonitorOutput] host ${host}:`, Object.keys(data).length ? data : "(empty)");
-  }
-
-  return { timestamp: ts, hosts };
+  const result = { timestamp: ts, hosts };
+  // Validate with Zod schema to ensure correct structure
+  const parsed = TickSchema.parse(result);
+  return parsed;
 }
 
 export const stream = os
