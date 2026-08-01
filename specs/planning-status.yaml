@@ -25,7 +25,7 @@ workflows:
     status: done
   slice-tasks:
     required: true
-    status: pending
+    status: done
 ```
 
 ## Status
@@ -35,7 +35,7 @@ workflows:
 - `research-first`: **skipped** (no external dependencies)
 - `elaborate-spec`: **skipped** (can be skipped for this project)
 - `plan-release`: **done** (7 epics sequenced by WSJF)
-- `slice-tasks`: **pending** (next step)
+- `slice-tasks`: **done** (e01 dashboard epic sliced: s01-s03)
 
 ## Usage
 

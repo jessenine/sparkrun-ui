@@ -1,0 +1,18 @@
+story_id: s01
+epic_id: e01
+title: Fix normalizeMonitorOutput to correctly extract and flatten sample metrics
+bcps: 3
+status: pending
+tasks:
+  - id: t01
+    description: Add debug logging to normalizeMonitorOutput to trace input/output
+    verify: pnpm dev && curl -s http://localhost:5678/api/debug-monitor
+    status: pending
+  - id: t02
+    description: Fix normalizeMonitorOutput to correctly extract metrics from sample
+    verify: pnpm test lib/rpc/procedures/monitor.test.ts
+    status: pending
+  - id: t03
+    description: Verify metrics display correctly in dashboard
+    verify: pnpm dev && verify-dashboard-metrics.sh
+    status: pending

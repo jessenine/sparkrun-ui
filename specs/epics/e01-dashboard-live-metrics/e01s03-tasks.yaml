@@ -1,0 +1,18 @@
+story_id: s03
+epic_id: e01
+title: Aggregate stats display shows correct values from normalized metrics
+bcps: 3
+status: pending
+tasks:
+  - id: t01
+    description: Review AggregateStats component metric aggregation logic
+    verify: pnpm test app/components/dashboard/AggregateStats.test.tsx
+    status: pending
+  - id: t02
+    description: Verify num() function handles empty values correctly
+    verify: pnpm test app/components/dashboard/AggregateStats.test.tsx
+    status: pending
+  - id: t03
+    description: Manual verification of dashboard metrics display
+    verify: pnpm dev && verify-dashboard-metrics.sh
+    status: pending

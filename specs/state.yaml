@@ -12,7 +12,7 @@ git:
   commit: 279750e
   status: clean          # clean | dirty
 handoff:
-  next_skill: slice-tasks       # skill name for next step
+  next_skill: plan-work       # skill name for next step
 metrics:
   story_start: null      # ISO 8601 timestamp (informational only)
 bug_cycle:
