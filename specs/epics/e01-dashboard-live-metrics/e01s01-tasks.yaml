@@ -10,7 +10,7 @@ tasks:
     description: Add debug logging to normalizeMonitorOutput to trace input/output
     verify: pnpm dev && curl -s http://localhost:5678/api/debug-monitor | grep -E "normalizeMonitorOutput|normalized"
     risk: P3
-    status: failing
+    status: passing
     allure:
       severity: minor
       categories:
@@ -20,7 +20,7 @@ tasks:
     description: Verify normalizeMonitorOutput correctly extracts metrics from valid sample data
     verify: pnpm test lib/rpc/procedures/monitor.test.ts
     risk: P0
-    status: failing
+    status: passing
     allure:
       severity: critical
       categories:
