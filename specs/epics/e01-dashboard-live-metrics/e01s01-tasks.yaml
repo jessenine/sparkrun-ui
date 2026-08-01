@@ -1,6 +1,6 @@
 story_id: e01s01
 title: Fix normalizeMonitorOutput to correctly extract and flatten sample metrics
-status: failing
+status: passing
 bcps: 3
 risk: P0
 context: infra
