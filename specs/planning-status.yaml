@@ -29,6 +29,9 @@ workflows:
   plan-work:
     required: true
     status: done
+  kickoff-branch:
+    required: true
+    status: done
 ```
 
 ## Status
@@ -40,6 +43,7 @@ workflows:
 - `plan-release`: **done** (7 epics sequenced by WSJF)
 - `slice-tasks`: **done** (e01 dashboard epic sliced: s01-s03)
 - `plan-work`: **done** (detailed tasks with verify commands for s01-s03)
+- `kickoff-branch`: **done** (branch fix-dashboard-metrics, worktree created)
 
 ## Usage
 
