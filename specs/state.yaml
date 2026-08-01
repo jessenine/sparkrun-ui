@@ -15,7 +15,8 @@ handoff:
   next_skill: develop-tdd   # e01s05 in progress
   completed_skills: []
 metrics:
-  story_start: "2026-08-01T22:30:00Z"  # e01s05 starts
+  story_start: "2026-08-01T22:40:00Z"  # e01s05 starts
+  story_progress: 40  # 2/5 tasks complete (normalize + RPC endpoint)
 bug_cycle:
   current_step: null
   completed_steps: []    # completed step numbers
