@@ -20,4 +20,19 @@ ssh jix@192.168.1.77 "
   docker image prune -f
 "
 
+echo "Fixing SSH configuration..."
+ssh jix@192.168.1.77 "
+  echo 'Fixing SSH key path...'
+  docker exec sparkrun-ui sed -i 's|/home/jix/.config/sparkrun/ssh/sparkrun_ed25519|/home/app/.config/sparkrun/ssh/sparkrun_ed25519|g' /home/app/.config/sparkrun/config.yaml
+
+  echo 'Setting SSH user...'
+  docker exec sparkrun-ui sparkrun cluster update default -u jix
+
+  echo 'Adding 127.0.0.1 host key...'
+  docker exec sparkrun-ui sh -c 'ssh-keyscan -H 127.0.0.1 2>&1 | tee -a /root/.ssh/known_hosts'
+
+  echo 'Verifying SSH configuration...'
+  docker exec sparkrun-ui sparkrun cluster show default
+"
+
 echo "Done! Verify at http://192.168.1.77:5678/dashboard"
