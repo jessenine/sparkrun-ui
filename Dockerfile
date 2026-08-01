@@ -78,7 +78,9 @@ ENV HOME=/home/app \
     SPARKRUN_BIN=sparkrun
 
 # Standalone Next.js server bundle + static + public.
-COPY --chown=app:app --from=builder /app/.next/standalone ./
+COPY --chown=app:app --from=builder /app/.next/standalone/.next ./.next
+COPY --chown=app:app --from=builder /app/.next/standalone/server.js ./server.js
+COPY --chown=app:app --from=builder /app/.next/standalone/node_modules ./node_modules
 COPY --chown=app:app --from=builder /app/.next/static ./.next/static
 COPY --chown=app:app --from=builder /app/public ./public
 
