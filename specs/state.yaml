@@ -21,6 +21,7 @@ bug_cycle:
 epic:
   current_epic_id: e01
   current_story_id: e01s04
+  current_tasks: [t01, t02, t03]  # implementation tasks in progress
 ```
 
 ## Usage
