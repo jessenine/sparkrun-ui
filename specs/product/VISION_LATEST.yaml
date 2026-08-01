@@ -1,0 +1,35 @@
+# sparkrun-ui Vision
+
+## Target User
+
+Data scientists and ML engineers running inference workloads on NVIDIA DGX Spark clusters who need a web-based interface to:
+
+- Monitor cluster health and resource utilization
+- Launch and manage inference workloads
+- Browse and experiment with different model recipes
+- View live logs and performance metrics
+- Run benchmarks to compare model performance
+
+## Core Needs
+
+1. **Cluster Visibility** — Real-time monitoring of CPU, GPU, memory, power, and temperatures across all cluster nodes
+2. **Workload Management** — Easy launch, stop, and log viewing for inference workloads
+3. **Recipe Discovery** — Browse recipes from multiple registries with filtering by model, runtime, and name
+4. **Configuration Control** — Edit YAML configurations with live validation before launching
+5. **Interactive Access** — Chat interface to interact with running inference models
+6. **Performance Benchmarking** — Track throughput and TTFR metrics over time
+
+## Success Metrics
+
+- Launch workload in under 30 seconds from recipe selection
+- Dashboard refresh rate of 2-3 seconds for live metrics
+- 95% of recipes launch on first attempt without YAML editing
+- Support for 5+ active workloads per DGX node without performance degradation
+
+## Non-Goals (Future)
+
+- Multi-cluster orchestration (single cluster per UI instance)
+- User accounts and permissions
+- Persistent job history beyond sparkrun cache
+- Automated model selection or tuning
+- Cost estimation or optimization

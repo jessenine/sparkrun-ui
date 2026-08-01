@@ -1,0 +1,47 @@
+# execution-status.yaml
+
+Flat story/epic status tracking.
+
+## Schema
+
+```yaml
+status: green  # green | amber | red (overall project status)
+
+epics:
+  e01:
+    title: Short title
+    status: green  # green | amber | red
+    stories:
+      - id: s01
+        title: Short story title
+        status: green  # green | amber | red
+        verify: pnpm test
+      - id: s02
+        title: Another story
+        status: amber
+        verify: bash scripts/verify-s02.sh
+
+stories:
+  s01:
+    epic_id: e01
+    title: Short story title
+    status: green
+    verify: pnpm test
+  s02:
+    epic_id: e01
+    title: Another story
+    status: amber
+    verify: bash scripts/verify-s02.sh
+```
+
+## Usage
+
+- Top-level `status` is overall project status
+- `epics` and `stories` provide parallel indexing
+- Each story has a `verify` command for testing
+- Status values: green (complete), amber (in progress), red (blocked)
+
+## Notes
+
+- Keep in sync with release-plan.yaml epics
+- Use `build-epic` skill to manage this file

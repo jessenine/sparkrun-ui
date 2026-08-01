@@ -1,0 +1,48 @@
+# sparkrun-ui Ubiquitous Language
+
+## Core Domain Terms
+
+| Term | Definition |
+|------|------------|
+| **sparkrun** | The CLI tool and orchestration framework for running inference workloads on DGX Spark clusters |
+| **workload** | A running inference job (e.g., vLLM, TGI) launched via sparkrun |
+| **recipe** | A predefined configuration template for launching a specific model/runtime combination |
+| **registry** | A source of recipes (GitHub repository or local path) |
+| **cluster** | A group of DGX hosts managed by sparkrun as a single unit |
+| **benchmark** | A performance test that measures throughput and time-to-first-response (TTFR) |
+
+## UI-Specific Terms
+
+| Term | Definition |
+|------|------------|
+| **dashboard** | The main view showing live cluster metrics and running workloads |
+| **launch wizard** | A 4-step workflow for selecting a recipe, configuring YAML, previewing, and launching |
+| **metrics** | Per-host resource utilization (CPU, GPU, memory, power, temperatures) |
+| **log tail** | Live streaming of workload output with ANSI color rendering |
+| **chat interface** | Interactive terminal-style conversation with a running inference model |
+
+## Architectural Terms
+
+| Term | Definition |
+|------|------------|
+| **oRPC** | End-to-end type-safe RPC framework used for all client-server communication |
+| **Server Component** | Next.js component rendered on the server for initial page load |
+| **Client Component** | Next.js component with interactivity rendered in the browser |
+| **state reader** | Function that reads sparkrun cache from disk (~/.cache/sparkrun) |
+
+## Verbs
+
+| Action | Description |
+|--------|-------------|
+| **launch** | Start a new workload using a recipe configuration |
+| **stop** | Terminate a running workload |
+| **tail** | Stream live output from a workload's logs |
+| **benchmark** | Run a performance test and record results |
+| **browse** | Filter and search recipes from registries |
+
+## Notes
+
+- "sparkrun" is both the tool name and the project name (context determines meaning)
+- "workload" and "job" refer to the same concept (use "workload" for UI, "job" when reading sparkrun cache)
+- "recipe" is preferred over "template" or "preset"
+- "metrics" is plural (always refer to multiple metrics: CPU, GPU, memory, etc.)

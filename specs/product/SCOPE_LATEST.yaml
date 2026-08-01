@@ -1,0 +1,27 @@
+# sparkrun-ui Product Scope
+
+version: "1.0"
+last_updated: "2026-08-01"
+
+scope:
+  in:
+    - Web UI for sparkrun cluster management
+    - Launch and monitor inference workloads on NVIDIA DGX Spark clusters
+    - Browse and filter recipes from multiple registries
+    - Live dashboard with per-host metrics (CPU, GPU, memory, power, temperatures)
+    - YAML editor for recipe configuration with live validation
+    - Log tailing for running workloads
+    - Chat interface for interacting with running models
+    - Benchmark history and new benchmark runs
+
+  out:
+    - Direct sparkrun cluster management (uses sparkrun CLI as backend)
+    - User authentication or authorization
+    - Persistent data storage (reads sparkrun cache directly)
+    - Model hosting or inference execution
+
+constraints:
+  - Must use sparkrun CLI as the backend (no direct cluster management)
+  - Must be browser-based, no native apps
+  - Must be network-accessible (Docker or npx deployment)
+  - Must work with existing sparkrun cluster configurations

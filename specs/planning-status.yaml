@@ -1,0 +1,25 @@
+# planning-status.yaml
+
+Discover-phase checklist for planning workflow.
+
+## Schema
+
+```yaml
+survey-context: true       # completed
+scope-work: false          # not started
+research-first: false      # not started
+elaborate-spec: false      # not started
+plan-release: false        # not started
+slice-tasks: false         # not started
+```
+
+## Usage
+
+- Tracks progress through the discover phase
+- Each item corresponds to a bigpowers skill
+- Update manually or via `run-planning` skill
+
+## Notes
+
+- All items must be true before moving to Plan phase
+- Use `run-planning` skill to drive discover-phase progress

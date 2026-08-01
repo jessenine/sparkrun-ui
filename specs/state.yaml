@@ -1,0 +1,40 @@
+# state.yaml
+
+Session state and workflow tracking for bigpowers.
+
+## Schema
+
+```yaml
+workflow_mode: solo-git  # team-pr | solo-git (default)
+active_flow: null        # build_epic | fix_bug | null
+git:
+  branch: main
+  commit: <sha>
+  status: clean          # clean | dirty
+handoff:
+  next_skill: null       # skill name for next step
+metrics:
+  story_start: null      # ISO 8601 timestamp (informational only)
+bug_cycle:
+  current_step: null     # 1-5 for bug fix workflow
+  completed_steps: []    # completed step numbers
+epic:
+  current_epic_id: null
+  current_story_id: null
+```
+
+## Usage
+
+- `workflow_mode` signals the integration mode (team vs solo)
+- `active_flow` indicates which workflow is in progress
+- `git` block tracks the current git state
+- `handoff.next_skill` passes control between skills
+- `metrics.story_start` records when a story begins (not for timing measurements)
+- `bug_cycle` tracks progress through the bug fix workflow
+- `epic` block tracks current epic and story in build_epic workflow
+
+## Notes
+
+- This file is written dynamically; do not commit manually
+- Use `bp-yaml-set` or direct edit to update values
+- `state.yaml.lock` is acquired/released dynamically

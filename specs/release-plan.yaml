@@ -1,0 +1,32 @@
+# release-plan.yaml
+
+Release plan - versioned index of epics and their order.
+
+## Schema
+
+```yaml
+version: "0.2.0"           # Target release version
+target_date: null          # Planned release date (optional)
+epics:
+  - id: e01
+    title: Short title
+    wsjf: 10               # WSJF score (higher = higher priority)
+    bcp: 5                 # Big Commit Points (story count)
+    status: planned        # planned | in-progress | complete
+    stories: []            # Story IDs included in this epic
+```
+
+## Usage
+
+- `version` is the target release version
+- `epics` array is ordered by WSJF (descending)
+- Each epic has a unique `id` (e.g., e01, e02)
+- `wsjf` = Weighted Shortest Job First score
+- `bcp` = Big Commit Points (estimate of story count)
+- `status` tracks epic progress
+
+## Notes
+
+- WSJF ordering determines release priority
+- BCP helps with capacity planning
+- Use `plan-release` skill to manage this file

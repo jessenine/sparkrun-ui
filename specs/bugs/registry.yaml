@@ -1,0 +1,51 @@
+# registry.yaml
+
+Bug registry — tracking all reported bugs.
+
+## Schema
+
+```yaml
+bugs:
+  - bug_id: BUG-001
+    date: "2024-01-15"
+    severity: high
+    priority: 1
+    scope: api
+    title: "Metrics show zero when cluster has active workloads"
+    file: specs/bugs/BUG-001-metrics-zero.yaml
+    status: open
+    assigned_to: null
+    created_by: agent
+```
+
+## Fields
+
+| Field | Description |
+|-------|-------------|
+| `bug_id` | Unique identifier (timestamp-based) |
+| `date` | Date reported (YYYY-MM-DD) |
+| `severity` | critical, high, medium, low |
+| `priority` | 1-10 (1 = highest priority) |
+| `scope` | api, ui, config, etc. |
+| `title` | One-line summary |
+| `file` | Path to full bug description |
+| `status` | open, in-progress, resolved, duplicate |
+| `assigned_to` | Agent or user responsible |
+| `created_by` | agent or user |
+
+## Workflow
+
+1. **Report** — `investigate-bug` creates bug entry
+2. **Triaged** — Severity and priority assigned
+3. **Assigned** — Agent assigned to fix
+4. **Resolved** — `validate-fix` confirms fix
+5. **Closed** — PR merged, release tagged
+
+## Severity Guidelines
+
+| Level | Definition | Response Time |
+|-------|------------|---------------|
+| critical | Security breach, data loss, complete outage | <24h |
+| high | Major functionality broken, no workaround | <1 week |
+| medium | Partial functionality broken, workaround exists | <2 weeks |
+| low | Minor issue, minor workaround | <1 month |
