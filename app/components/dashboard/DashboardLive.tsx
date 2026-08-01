@@ -11,6 +11,8 @@ import { Button } from "@/app/components/ui/Button";
 import { WorkloadCard } from "./WorkloadCard";
 import { AggregateStats } from "./AggregateStats";
 import { SparklineGraph } from "./SparklineGraph";
+import { ProcessList } from "./ProcessList";
+import type { ProcessEntry } from "./ProcessList";
 
 function formatHostError(value: unknown): string {
   if (typeof value === "string") return value;
@@ -35,6 +37,9 @@ export function DashboardLive({
   const [metricHistory, setMetricHistory] = useState<Record<string, Record<string, number[]>>>(
     {}
   );
+  
+  // Process history per host: hostIp -> [ProcessEntry]
+  const [processHistory, setProcessHistory] = useState<Record<string, ProcessEntry[]>>({});
   
   const MAX_HISTORY = 15; // 15 data points at 2-3s intervals = ~30-45 seconds
 
@@ -116,6 +121,36 @@ export function DashboardLive({
       ac.abort();
     };
   }, []);
+
+  // Subscribe to process metrics stream for per-host process data
+  useEffect(() => {
+    const ac = new AbortController();
+    let cancelled = false;
+    (async () => {
+      try {
+        const hosts = Object.keys(metricHistory);
+        if (hosts.length === 0) return;
+        
+        const result = await rpc.monitor.processes({ hosts }, { signal: ac.signal });
+        if (cancelled) return;
+        
+        // Update process history for each host
+        setProcessHistory((prev) => {
+          const nextHistory = { ...prev };
+          nextHistory["127.0.0.1"] = result.processes;
+          return nextHistory;
+        });
+      } catch (err) {
+        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
+          console.error("[monitor.processes]", err);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, [Object.keys(metricHistory).length]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -210,6 +245,13 @@ export function DashboardLive({
                       data={history.gpu_temp_c || []}
                       color="red"
                       unit="°C"
+                    />
+                  </div>
+                  {/* Process list - show top 5 processes */}
+                  <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                    <ProcessList
+                      title="Top Processes"
+                      processes={processHistory[hostIp] || []}
                     />
                   </div>
                 </CardBody>
