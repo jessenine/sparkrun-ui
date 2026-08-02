@@ -1,0 +1,143 @@
+import { runSparkrunJson } from "./sparkrun";
+import { ClusterStatusSchema, type ClusterStatus as SparkrunClusterStatus } from "./schemas";
+
+// Re-export the schema for API routes
+export { ClusterStatusSchema, type SparkrunClusterStatus };
+
+// Internal types for metrics collection
+type MonitorMetrics = {
+  cluster: string;
+  timestamp: string;
+  host: string;
+  cpu: number;
+  memory: number;
+  disk: number;
+  network: number;
+  gpu?: {
+    total: number;
+    used: number;
+  };
+};
+
+type ProcessInfo = {
+  id: string;
+  name: string;
+  host: string;
+  cpu: number;
+  memory: number;
+  status: string;
+};
+
+// Cache with TTL
+class Cache<T> {
+  private value: T | null = null;
+  private timestamp: number = 0;
+  private ttlMs: number;
+
+  constructor(ttlMs = 2000) {
+    this.ttlMs = ttlMs;
+  }
+
+  get(): T | null {
+    if (this.value === null) return null;
+    if (Date.now() - this.timestamp > this.ttlMs) {
+      this.value = null;
+      return null;
+    }
+    return this.value;
+  }
+
+  set(value: T) {
+    this.value = value;
+    this.timestamp = Date.now();
+  }
+}
+
+// Global caches
+const monitorCache = new Cache<MonitorMetrics[]>(2000);
+const processesCache = new Cache<ProcessInfo[]>(3000);
+const statusCache = new Cache<SparkrunClusterStatus>(5000);
+
+// Flag to prevent multiple simultaneous collection
+let isCollecting = false;
+
+export async function collectMetrics(): Promise<void> {
+  if (isCollecting) {
+    return; // Skip if already collecting
+  }
+
+  isCollecting = true;
+  try {
+    // Collect monitor metrics
+    const monitorResult = await runSparkrunJson<MonitorMetrics[]>(
+      ["cluster", "monitor", "--json", "--interval", "1"],
+      { timeoutMs: 3000 },
+    ).catch(() => monitorCache.get() ?? []);
+
+    if (Array.isArray(monitorResult) && monitorResult.length > 0) {
+      monitorCache.set(monitorResult);
+    }
+
+    // Collect process info
+    const processesResult = await runSparkrunJson<ProcessInfo[]>(
+      ["cluster", "processes", "--json"],
+      { timeoutMs: 3000 },
+    ).catch(() => processesCache.get() ?? []);
+
+    if (Array.isArray(processesResult) && processesResult.length > 0) {
+      processesCache.set(processesResult);
+    }
+
+    // Collect cluster status - use "status" not "list"
+    const statusResult = await runSparkrunJson<SparkrunClusterStatus>(
+      ["cluster", "status", "--json"],
+      { timeoutMs: 3000 },
+    ).catch(() => statusCache.get() ?? null);
+
+    if (statusResult) {
+      statusCache.set(statusResult);
+    }
+  } catch (error) {
+    console.error("Metrics collection failed:", error);
+  } finally {
+    isCollecting = false;
+  }
+}
+
+export function getMonitorMetrics(): MonitorMetrics[] | null {
+  return monitorCache.get();
+}
+
+export function getProcesses(): ProcessInfo[] | null {
+  return processesCache.get();
+}
+
+export function getClusterStatus(): SparkrunClusterStatus | null {
+  return statusCache.get();
+}
+
+// Start background collection loop
+let collectionInterval: NodeJS.Timeout | null = null;
+
+export function startMetricsCollection(): void {
+  if (collectionInterval) {
+    console.warn("Metrics collection already running");
+    return;
+  }
+
+  console.log("Starting metrics collection loop (every 2s)");
+
+  // Collect immediately on start
+  collectMetrics();
+
+  // Then collect on interval
+  collectionInterval = setInterval(collectMetrics, 2000);
+}
+
+export function stopMetricsCollection(): void {
+  if (collectionInterval) {
+    clearInterval(collectionInterval);
+    collectionInterval = null;
+    console.log("Stopped metrics collection loop");
+  }
+}

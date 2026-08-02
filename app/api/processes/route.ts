@@ -1,46 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
-import { streamSparkrunNdjson } from "@/lib/sparkrun";
+import { z } from "zod";
+import { getProcesses } from "@/lib/metrics-collector";
+
+// Transform process info into the format expected by ProcessList component
+function transformProcesses(processes: any[]): any {
+  const hostProcesses: Record<string, any[]> = {};
+  
+  for (const p of processes) {
+    const hostIp = p.host || "unknown";
+    if (!hostProcesses[hostIp]) {
+      hostProcesses[hostIp] = [];
+    }
+    
+    hostProcesses[hostIp].push({
+      pid: p.id,
+      user: p.name,
+      cpu: String(p.cpu || 0),
+      mem: String(p.memory || 0),
+      command: p.name,
+    });
+  }
+  
+  const hosts: Record<string, any> = {};
+  for (const [host, entries] of Object.entries(hostProcesses)) {
+    hosts[host] = {
+      processes: entries,
+    };
+  }
+  
+  return {
+    hosts: hosts,
+    source: "cached",
+    stale: false,
+    lastUpdate: new Date().toISOString(),
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const hosts = body?.hosts ?? [];
+    const cachedProcesses = getProcesses();
     
-    const args = ["cluster", "monitor", "--json", "--interval", "2"];
-    if (hosts.length > 0) {
-      args.push("--hosts", hosts.join(","));
+    if (!cachedProcesses || cachedProcesses.length === 0) {
+      return NextResponse.json({
+        hosts: {},
+        source: "cached",
+        stale: true,
+        message: "No process data available yet. Wait a moment and try again."
+      });
     }
     
-    const processes: Array<{ host: string; entries: Array<{ pid: string; user: string; cpu: string; mem: string; command: string }> }> = [];
-    
-    for await (const obj of streamSparkrunNdjson<Record<string, unknown>>(args)) {
-      try {
-        if (obj.hosts && typeof obj.hosts === "object") {
-          for (const [host, data] of Object.entries(obj.hosts as Record<string, any>)) {
-            if (data && typeof data === "object" && "processes" in data) {
-              const procRaw = data.processes;
-              if (Array.isArray(procRaw)) {
-                processes.push({
-                  host,
-                  entries: procRaw.map((p: any) => ({
-                    pid: String(p.pid ?? ""),
-                    user: String(p.user ?? ""),
-                    cpu: String(p.cpu ?? ""),
-                    mem: String(p.mem ?? ""),
-                    command: String(p.command ?? ""),
-                  })),
-                });
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Process parsing error:", err);
-        continue;
-      }
-    }
-    
-    return NextResponse.json({ processes });
+    return NextResponse.json(transformProcesses(cachedProcesses));
   } catch (err) {
     console.error("[api/processes/error]", err);
     return NextResponse.json(
