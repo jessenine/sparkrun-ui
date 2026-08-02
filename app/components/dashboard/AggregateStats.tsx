@@ -187,7 +187,7 @@ export function AggregateStats() {
       ac.abort();
       clearInterval(interval);
     };
-  }, [diskInfo]);
+  }, []);
 
   const agg = aggregate(tick, diskInfo);
   const memPct = agg.memTotalGb ? (agg.memUsedGb / agg.memTotalGb) * 100 : 0;
