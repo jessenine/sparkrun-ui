@@ -15,12 +15,15 @@ export function SparklineGraph({
   showLabel = true,
 }: {
   title: string;
-  data: number[];
+  data: number[] | undefined | null;
   color?: "blue" | "purple" | "green" | "orange" | "red" | "sky" | "amber";
   unit?: string;
   showLabel?: boolean;
 }) {
-  if (data.length === 0) {
+  // Handle undefined/null/empty data gracefully
+  const safeData = Array.isArray(data) ? data.filter(v => Number.isFinite(v)) : [];
+  
+  if (safeData.length === 0) {
     return (
       <div className="flex flex-col gap-1.5">
         {showLabel && (
@@ -36,22 +39,25 @@ export function SparklineGraph({
 
   const w = 120;
   const h = 48;
-  const max = Math.max(...data, 1);
-  const min = Math.min(...data);
+  const max = Math.max(...safeData, 1);
+  const min = Math.min(...safeData, 0);
   const range = max - min || 1;
 
   // Calculate path points - normalize data to fit height
-  const step = w / Math.max(1, data.length - 1);
-  const path = data
+  const step = w / Math.max(1, safeData.length - 1);
+  const path = safeData
     .map((v, i) => {
       const x = i * step;
+      // Skip non-finite values to avoid rendering issues
+      if (!Number.isFinite(v)) return null;
       const normalizedY = (v - min) / range; // 0 to 1
       const y = h - normalizedY * (h - 8) - 4; // Leave 4px padding top/bottom
       return `${i === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
     })
+    .filter(Boolean)
     .join(" ");
 
-  const current = data[data.length - 1];
+  const current = safeData.length > 0 ? safeData[safeData.length - 1] : undefined;
 
   // Color mappings
   const colors = {
@@ -75,7 +81,7 @@ export function SparklineGraph({
           </div>
           {data.length > 2 && (
             <span className="font-mono text-xs text-zinc-500 dark:text-zinc-400">
-              {current >= 0 ? current.toFixed(1) + unit : "—"}
+              {typeof current === "number" && Number.isFinite(current) ? current.toFixed(1) + unit : "—"}
             </span>
           )}
         </div>

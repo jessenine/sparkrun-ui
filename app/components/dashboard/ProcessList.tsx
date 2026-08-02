@@ -49,8 +49,8 @@ export function ProcessList({
                 >
                   <td className="py-1 text-zinc-600 dark:text-zinc-400 font-mono">{p.user}</td>
                   <td className="py-1 text-zinc-600 dark:text-zinc-400 text-right font-mono">{p.pid}</td>
-                  <td className="py-1 text-zinc-600 dark:text-zinc-400 text-right font-mono">{p.cpu.toFixed(1)}</td>
-                  <td className="py-1 text-zinc-600 dark:text-zinc-400 text-right font-mono">{p.mem.toFixed(1)}</td>
+                  <td className="py-1 text-zinc-600 dark:text-zinc-400 text-right font-mono">{typeof p.cpu === "number" ? p.cpu.toFixed(1) : "0.0"}</td>
+                  <td className="py-1 text-zinc-600 dark:text-zinc-400 text-right font-mono">{typeof p.mem === "number" ? p.mem.toFixed(1) : "0.0"}</td>
                   <td className="py-1 text-zinc-900 dark:text-zinc-100 font-mono truncate" title={p.command}>
                     {p.command}
                   </td>

@@ -48,6 +48,9 @@ export function DashboardLive({
     let cancelled = false;
     
     const pollMonitor = async () => {
+      // Check cancelled flag at start to avoid unnecessary work
+      if (cancelled) return;
+      
       try {
         const response = await fetch("/api/monitor", {
           method: "POST",
@@ -65,45 +68,54 @@ export function DashboardLive({
         }
         
         const data = await response.json();
-        setConnected(true);
+        
+        // Validate data.results is an array before processing
+        if (!Array.isArray(data.results) || data.results.length === 0) {
+          setConnected(false);
+          return;
+        }
         
         // Use the latest result from the batch
-        if (data.results && data.results.length > 0) {
-          const latest = data.results[data.results.length - 1];
-          setStatus(latest);
+        const latest = data.results[data.results.length - 1];
+        setStatus(latest);
+        
+        // Update metric history
+        setMetricHistory((prev) => {
+          const nextHistory = { ...prev };
+          const hosts = (latest as { hosts: Record<string, any> }).hosts;
           
-          // Update metric history
-          setMetricHistory((prev) => {
-            const nextHistory = { ...prev };
-            const hosts = (latest as { hosts: Record<string, any> }).hosts;
-            
-            for (const [hostIp, metrics] of Object.entries(hosts)) {
-              if (!nextHistory[hostIp]) {
-                nextHistory[hostIp] = {};
-              }
-              
-              const hostHistory = nextHistory[hostIp];
-              for (const [metricName, value] of Object.entries(metrics)) {
-                if (value === undefined) continue;
-                // Convert to string first, then parse as number
-                const strVal = String(value);
-                const numVal = parseFloat(strVal);
-                if (!Number.isFinite(numVal)) continue;
-                
-                const history = hostHistory[metricName] || [];
-                const newHistory = [...history, numVal];
-                
-                if (newHistory.length > MAX_HISTORY) {
-                  newHistory.shift();
-                }
-                
-                hostHistory[metricName] = newHistory;
-              }
+          if (!hosts || typeof hosts !== "object") {
+            return nextHistory;
+          }
+          
+          for (const [hostIp, metrics] of Object.entries(hosts)) {
+            if (!nextHistory[hostIp]) {
+              nextHistory[hostIp] = {};
             }
             
-            return nextHistory;
-          });
-        }
+            const hostHistory = nextHistory[hostIp];
+            for (const [metricName, value] of Object.entries(metrics)) {
+              if (value === undefined) continue;
+              // Convert to string first, then parse as number
+              const strVal = String(value);
+              const numVal = parseFloat(strVal);
+              // Validate that parsed value is finite and valid
+              if (!Number.isFinite(numVal) || isNaN(numVal)) continue;
+              
+              const history = hostHistory[metricName] || [];
+              const newHistory = [...history, numVal];
+              
+              if (newHistory.length > MAX_HISTORY) {
+                newHistory.shift();
+              }
+              
+              hostHistory[metricName] = newHistory;
+            }
+          }
+          
+          return nextHistory;
+        });
+        setConnected(true);
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
           console.error("[pollMonitor]", err);
@@ -128,6 +140,9 @@ export function DashboardLive({
     let cancelled = false;
     
     const pollProcesses = async () => {
+      // Check cancelled flag at start to avoid unnecessary work
+      if (cancelled) return;
+      
       // Always poll processes - even if metricHistory is empty, we might get data
       try {
         const response = await fetch("/api/processes", {
@@ -146,11 +161,22 @@ export function DashboardLive({
         
         const data = await response.json();
         
+        // Validate data.processes is an array before processing
+        if (!Array.isArray(data.processes)) {
+          return;
+        }
+        
         // Update process history for each host
         setProcessHistory((prev) => {
           const nextHistory = { ...prev };
-          for (const { host, entries } of data.processes || []) {
-            nextHistory[host] = entries;
+          for (const item of data.processes) {
+            // Validate item structure before accessing properties
+            if (!item || typeof item !== "object") continue;
+            const host = item.host;
+            const entries = item.entries;
+            if (typeof host === "string" && Array.isArray(entries)) {
+              nextHistory[host] = entries;
+            }
           }
           return nextHistory;
         });
@@ -177,6 +203,9 @@ export function DashboardLive({
     let cancelled = false;
     
     const pollJobs = async () => {
+      // Check cancelled flag at start to avoid unnecessary work
+      if (cancelled) return;
+      
       try {
         const response = await fetch("/api/jobs", {
           method: "POST",
@@ -192,7 +221,8 @@ export function DashboardLive({
         
         const data = await response.json();
         if (!cancelled) {
-          setJobs(data.jobs || []);
+          // Validate data.jobs is an array before setting
+          setJobs(Array.isArray(data.jobs) ? data.jobs : []);
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
@@ -238,68 +268,78 @@ export function DashboardLive({
             </span>
           </h2>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {Object.entries(metricHistory).map(([hostIp, history]) => (
-              <Card key={hostIp}>
-                <CardBody className="p-4">
-                  <div className="mb-3 flex items-baseline justify-between">
-                    <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      {hostIp}
+            {Object.entries(metricHistory).map(([hostIp, history]) => {
+              // Safely access history properties, defaulting to empty arrays
+              const cpuData = Array.isArray(history.cpu_usage_pct) ? history.cpu_usage_pct : [];
+              const gpuData = Array.isArray(history.gpu_util_pct) ? history.gpu_util_pct : [];
+              const memData = Array.isArray(history.mem_used_pct) ? history.mem_used_pct : [];
+              const powerData = Array.isArray(history.gpu_power_w) ? history.gpu_power_w : [];
+              const cpuTempData = Array.isArray(history.cpu_temp_c) ? history.cpu_temp_c : [];
+              const gpuTempData = Array.isArray(history.gpu_temp_c) ? history.gpu_temp_c : [];
+              
+              return (
+                <Card key={hostIp}>
+                  <CardBody className="p-4">
+                    <div className="mb-3 flex items-baseline justify-between">
+                      <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        {hostIp}
+                      </div>
+                      <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" title="online" />
                     </div>
-                    <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" title="online" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <SparklineGraph
-                      title="CPU"
-                      data={history.cpu_usage_pct || []}
-                      color="sky"
-                      unit="%"
-                    />
-                    <SparklineGraph
-                      title="GPU"
-                      data={history.gpu_util_pct || []}
-                      color="purple"
-                      unit="%"
-                    />
-                    <SparklineGraph
-                      title="Mem"
-                      data={history.mem_used_pct || []}
-                      color="green"
-                      unit="%"
-                    />
-                    <SparklineGraph
-                      title="Power"
-                      data={history.gpu_power_w || []}
-                      color="amber"
-                      unit="W"
-                    />
-                    <SparklineGraph
-                      title="Temp"
-                      data={history.cpu_temp_c || []}
-                      color="red"
-                      unit="°C"
-                    />
-                    <SparklineGraph
-                      title="GPU Temp"
-                      data={history.gpu_temp_c || []}
-                      color="red"
-                      unit="°C"
-                    />
-                  </div>
-                  {/* Process list - show top 5 processes */}
-                  <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                    <ProcessList
-                      title="Top Processes"
-                      processes={processHistory[hostIp] || []}
-                    />
-                  </div>
-                </CardBody>
-              </Card>
-            ))}
+                    <div className="grid grid-cols-2 gap-3">
+                      <SparklineGraph
+                        title="CPU"
+                        data={cpuData}
+                        color="sky"
+                        unit="%"
+                      />
+                      <SparklineGraph
+                        title="GPU"
+                        data={gpuData}
+                        color="purple"
+                        unit="%"
+                      />
+                      <SparklineGraph
+                        title="Mem"
+                        data={memData}
+                        color="green"
+                        unit="%"
+                      />
+                      <SparklineGraph
+                        title="Power"
+                        data={powerData}
+                        color="amber"
+                        unit="W"
+                      />
+                      <SparklineGraph
+                        title="Temp"
+                        data={cpuTempData}
+                        color="red"
+                        unit="°C"
+                      />
+                      <SparklineGraph
+                        title="GPU Temp"
+                        data={gpuTempData}
+                        color="red"
+                        unit="°C"
+                      />
+                    </div>
+                    {/* Process list - show top 5 processes */}
+                    <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                      <ProcessList
+                        title="Top Processes"
+                        processes={processHistory[hostIp] || []}
+                      />
+                    </div>
+                  </CardBody>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {Object.keys(status.errors).length > 0 && (
+      {Object.keys(status.errors || {}).length > 0 && (
         <Card className="border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
           <CardBody className="flex gap-3">
             <AlertTriangle
