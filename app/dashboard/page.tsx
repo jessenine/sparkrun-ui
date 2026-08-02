@@ -11,7 +11,7 @@ const serverClient = _serverClient as any;
 
 async function getStatus() {
   try {
-    const data = await runSparkrunJson<Record<string, unknown>>(["cluster", "list", "--json"]);
+    const data = await runSparkrunJson<Record<string, unknown>>(["cluster", "status", "--json"]);
     return ClusterStatusSchema.parse(data);
   } catch (err) {
     console.error("[getStatus]", err);
