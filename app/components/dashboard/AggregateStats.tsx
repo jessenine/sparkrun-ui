@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { Cpu, MemoryStick, Server, Thermometer, Zap, HardDrive } from "lucide-react";
 
-console.log("[AggregateStats] Component mounted");
 import { Card, CardBody } from "@/app/components/ui/Card";
 import type { DiskUsage } from "@/lib/schemas";
 
@@ -108,17 +107,13 @@ function push(arr: number[], value: number): number[] {
 }
 
 export function AggregateStats() {
-  console.log("[AggregateStats] Component mounted and running");
   const [tick, setTick] = useState<Tick | null>(null);
   const [diskInfo, setDiskInfo] = useState<DiskUsage[]>([]);
   const [hist, setHist] = useState<{ cpu: number[]; gpu: number[] }>({ cpu: [], gpu: [] });
   const [connected, setConnected] = useState(false);
-  
-  console.log("[AggregateStats] State initialized, setting up effects");
 
   // Fetch disk info once
   useEffect(() => {
-    console.log("[AggregateStats] Fetching disk info...");
     (async () => {
       try {
         const response = await fetch("/api/disk", {
@@ -126,14 +121,12 @@ export function AggregateStats() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
         });
-        console.log("[AggregateStats] Disk fetch completed, status:", response.status);
         if (response.ok) {
           const data = await response.json();
-          console.log("[AggregateStats] Disk data:", data.results?.length);
           setDiskInfo(data.results || []);
         }
       } catch (err) {
-        console.error("[disk.list] Error:", err);
+        console.error("[disk.list]", err);
       }
     })();
   }, []);
@@ -145,48 +138,37 @@ export function AggregateStats() {
     
     const pollMonitor = async () => {
       try {
-        console.log("[AggregateStats] Fetching /api/monitor...");
         const response = await fetch("/api/monitor", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
           signal: ac.signal,
         });
-        console.log("[AggregateStats] Fetch completed, status:", response.status);
         
         if (cancelled) return;
         
         if (!response.ok) {
-          console.error("Monitor API error:", response.statusText);
           setConnected(false);
           return;
         }
         
         const data = await response.json();
-        console.log("[AggregateStats] JSON parsed, results:", data.results?.length);
         
         // Use the latest result
         if (data.results && data.results.length > 0) {
           const latest = data.results[data.results.length - 1];
-          console.log("[AggregateStats] Monitor data:", {
-            resultsCount: data.results.length,
-            latestHosts: latest.hosts ? Object.keys(latest.hosts).length : 0
-          });
           setTick(latest);
           const agg = aggregate(latest as Tick, diskInfo);
-          console.log("[AggregateStats] Aggregated:", agg);
           setHist((prev) => ({
             cpu: push(prev.cpu, agg.cpuAvg),
             gpu: push(prev.gpu, agg.gpuAvg),
           }));
           setConnected(true);
         } else {
-          console.warn("[AggregateStats] No results in monitor data");
           setConnected(false);
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[AggregateStats] Error polling monitor:", err);
           setConnected(false);
         }
       }
