@@ -19,14 +19,11 @@ function transformProcessesForDashboard(metrics: any[]): any {
     for (const w of h.workloads || []) {
       for (const c of w.containers || []) {
         entries.push({
-          pid: c.name,
           user: w.recipe || "unknown",
-          cpu: "N/A",
-          mem: "N/A",
-          command: c.name,
-          status: c.status,
-          role: c.role,
-          image: c.image,
+          pid: 0, // No PID available from sparkrun - use 0 as placeholder
+          cpu: 0, // No CPU % available from sparkrun - use 0 as placeholder
+          mem: 0, // No MEM % available from sparkrun - use 0 as placeholder
+          command: c.name || "unknown",
         });
       }
     }
