@@ -14,9 +14,9 @@
 services:
   sparkrun-ui:
     image: sparkrun-ui:custom
-    # `:latest` is mutable — always re-check the registry so `docker compose up`
-    # picks up new builds instead of reusing a stale local cache.
-    pull_policy: always
+    # Use the locally built image instead of pulling from registry.
+    # This ensures our custom Dockerfile changes are used for API routes.
+    pull_policy: never
     container_name: sparkrun-ui
     restart: unless-stopped
 
