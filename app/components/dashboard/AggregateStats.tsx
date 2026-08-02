@@ -108,11 +108,13 @@ function push(arr: number[], value: number): number[] {
 }
 
 export function AggregateStats() {
-  console.log("[AggregateStats] Component running");
+  console.log("[AggregateStats] Component mounted and running");
   const [tick, setTick] = useState<Tick | null>(null);
   const [diskInfo, setDiskInfo] = useState<DiskUsage[]>([]);
   const [hist, setHist] = useState<{ cpu: number[]; gpu: number[] }>({ cpu: [], gpu: [] });
   const [connected, setConnected] = useState(false);
+  
+  console.log("[AggregateStats] State initialized, setting up effects");
 
   // Fetch disk info once
   useEffect(() => {
