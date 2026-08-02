@@ -1,10 +1,12 @@
-import { runSparkrunJson } from "./sparkrun";
+import { runSparkrunJson, streamSparkrunNdjson } from "./sparkrun";
 import { ClusterStatusSchema, type ClusterStatus as SparkrunClusterStatus } from "./schemas";
 
 // Re-export the schema for API routes
 export { ClusterStatusSchema, type SparkrunClusterStatus };
 
 // Internal types for metrics collection
+// The actual sparkrun output has this structure:
+// { timestamp: number, hosts: [{ host: string, error: null|string, sample: {...}, workloads: [...], used_slots: number, free_slots: number }, ...] }
 type MonitorMetrics = {
   timestamp: number;
   hosts: Array<{
@@ -111,26 +113,29 @@ export async function collectMetrics(): Promise<void> {
   try {
     console.log("[collectMetrics] Starting collection...");
     
-    // Collect monitor metrics - try directly, log any errors
-    let monitorResult: any;
+    // Collect monitor metrics using streamSparkrunNdjson (output is NDJSON)
+    const monitorResult: MonitorMetrics[] = [];
     try {
-      monitorResult = await runSparkrunJson<MonitorMetrics[]>(
+      for await (const obj of streamSparkrunNdjson(
         ["cluster", "monitor", "--json", "--interval", "1"],
-        { timeoutMs: 3000 },
-      );
-      console.log("[collectMetrics] Monitor result from runSparkrunJson:", monitorResult);
+        { signal: new AbortController().signal },
+      )) {
+        // The output has { timestamp, hosts: [...] } format
+        // hosts is an array in the actual output
+        monitorResult.push(obj);
+      }
+      console.log("[collectMetrics] Monitor result from streamSparkrunNdjson:", monitorResult.length, "records");
     } catch (err: any) {
-      console.error("[collectMetrics] Error calling runSparkrunJson:", err);
-      monitorResult = [];
+      console.error("[collectMetrics] Error streaming monitor metrics:", err);
     }
     
-    console.log("[collectMetrics] Monitor result after processing:", Array.isArray(monitorResult) ? `count=${monitorResult.length}` : typeof monitorResult);
+    console.log("[collectMetrics] Monitor result after processing:", monitorResult.length);
 
-    if (Array.isArray(monitorResult) && monitorResult.length > 0) {
+    if (monitorResult.length > 0) {
       monitorCache.set(monitorResult);
       console.log("[collectMetrics] Cached monitor metrics");
     } else {
-      console.log("[collectMetrics] Not caching - result is not array or empty");
+      console.log("[collectMetrics] Not caching - no records collected");
     }
 
     // Collect process info
