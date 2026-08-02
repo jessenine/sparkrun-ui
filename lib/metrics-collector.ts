@@ -121,7 +121,6 @@ export async function collectMetrics(): Promise<void> {
         ["cluster", "monitor", "--json", "--interval", "1"],
         { timeoutMs: 3000 },
       );
-      console.log("[collectMetrics] Monitor output:", result.stdout.substring(0, 200), "...");
       
       // Parse NDJSON output (multiple JSON objects, one per line)
       const lines = result.stdout.trim().split("\n");
@@ -134,18 +133,12 @@ export async function collectMetrics(): Promise<void> {
           // Skip non-JSON lines
         }
       }
-      console.log("[collectMetrics] Monitor result from NDJSON:", monitorResult.length, "records");
     } catch (err: any) {
-      console.error("[collectMetrics] Error streaming monitor metrics:", err);
+      // Silently continue on error
     }
     
-    console.log("[collectMetrics] Monitor result after processing:", monitorResult.length);
-
     if (monitorResult.length > 0) {
       monitorCache.set(monitorResult);
-      console.log("[collectMetrics] Cached monitor metrics");
-    } else {
-      console.log("[collectMetrics] Not caching - no records collected");
     }
 
     // Collect process info
