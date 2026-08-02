@@ -10,6 +10,9 @@ ssh jix@192.168.1.77 "cd /home/jix/sparkrun-ui && docker compose down sparkrun-u
 echo "Copying dist files..."
 scp dist.tar.gz jix@192.168.1.77:/home/jix/sparkrun-ui/dist.tar.gz
 
+# Update docker-compose.yml on remote to use custom image
+scp docker-compose.yml jix@192.168.1.77:/home/jix/sparkrun-ui/docker-compose.yml
+
 echo "Deploying on remote host..."
 ssh jix@192.168.1.77 "
   cd /home/jix/sparkrun-ui
