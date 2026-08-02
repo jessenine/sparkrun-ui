@@ -111,7 +111,6 @@ export async function collectMetrics(): Promise<void> {
 
   isCollecting = true;
   try {
-    console.log("[collectMetrics] Starting collection...");
     
     // Collect monitor metrics using runSparkrunText with timeout
     // The output is NDJSON - one JSON object per line for each snapshot
