@@ -1,24 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getProcesses } from "@/lib/metrics-collector";
+import { getMonitorMetrics } from "@/lib/metrics-collector";
 
-// Transform process info into the format expected by ProcessList component
-function transformProcesses(processes: any[]): any {
+// Transform process info from monitor metrics into the format expected by ProcessList component
+function transformProcessesFromMonitor(metrics: any[]): any {
+  // Take the most recent metrics snapshot
+  const latest = metrics[metrics.length - 1] || { hosts: [] };
+  
   const hostProcesses: Record<string, any[]> = {};
   
-  for (const p of processes) {
-    const hostIp = p.host || "unknown";
+  for (const h of latest.hosts || []) {
+    const hostIp = h.host || "unknown";
     if (!hostProcesses[hostIp]) {
       hostProcesses[hostIp] = [];
     }
     
-    hostProcesses[hostIp].push({
-      pid: p.id,
-      user: p.name,
-      cpu: String(p.cpu || 0),
-      mem: String(p.memory || 0),
-      command: p.name,
-    });
+    // Extract workloads as process info
+    for (const w of h.workloads || []) {
+      for (const c of w.containers || []) {
+        hostProcesses[hostIp].push({
+          pid: c.name,
+          user: w.recipe || "unknown",
+          cpu: "N/A",
+          mem: "N/A",
+          command: c.name,
+          status: c.status,
+          role: c.role,
+          image: c.image,
+        });
+      }
+    }
   }
   
   const hosts: Record<string, any> = {};
@@ -38,9 +49,9 @@ function transformProcesses(processes: any[]): any {
 
 export async function POST(request: NextRequest) {
   try {
-    const cachedProcesses = getProcesses();
+    const cachedMetrics = getMonitorMetrics();
     
-    if (!cachedProcesses || cachedProcesses.length === 0) {
+    if (!cachedMetrics || cachedMetrics.length === 0) {
       return NextResponse.json({
         hosts: {},
         source: "cached",
@@ -49,7 +60,7 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    return NextResponse.json(transformProcesses(cachedProcesses));
+    return NextResponse.json(transformProcessesFromMonitor(cachedMetrics));
   } catch (err) {
     console.error("[api/processes/error]", err);
     return NextResponse.json(
