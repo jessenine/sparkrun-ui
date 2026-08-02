@@ -36,15 +36,12 @@ export const viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // Start metrics collection on server (runs once per server instance)
   if (typeof process !== "undefined" && process.env) {
-    const isDev = process.env.NODE_ENV === "development";
-    if (isDev) {
-      import("@/lib/metrics-collector").then(({ startMetricsCollection }) => {
-        startMetricsCollection();
-        console.log("Metrics collection started on server");
-      }).catch((err) => {
-        console.error("Failed to start metrics collection:", err);
-      });
-    }
+    import("@/lib/metrics-collector").then(({ startMetricsCollection }) => {
+      startMetricsCollection();
+      console.log("Metrics collection started on server");
+    }).catch((err) => {
+      console.error("Failed to start metrics collection:", err);
+    });
   }
 
   return (
