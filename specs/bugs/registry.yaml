@@ -6,6 +6,16 @@ Bug registry — tracking all reported bugs.
 
 ```yaml
 bugs:
+  - bug_id: BUG-20260802T042400
+    date: "2026-08-02"
+    severity: high
+    priority: 1
+    scope: ui
+    title: "AggregateStats not polling monitor API"
+    file: specs/bugs/BUG-20260802T042400-aggregatestats-not-polling.md
+    status: open
+    assigned_to: null
+    created_by: agent
   - bug_id: BUG-001
     date: "2024-01-15"
     severity: high
