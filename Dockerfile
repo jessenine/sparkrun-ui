@@ -81,10 +81,14 @@ ENV HOME=/home/app \
     HOSTNAME=0.0.0.0 \
     SPARKRUN_BIN=sparkrun
 
-# Next.js server bundle + static + public.
+# Next.js server bundle + static + public + source files.
 COPY --chown=app:app --from=builder /app/.next ./.next
 COPY --chown=app:app --from=builder /app/node_modules ./node_modules
 COPY --chown=app:app --from=builder /app/public ./public
+# Copy source files for API routes and other server-side code
+COPY --chown=app:app --from=builder /app/app ./app
+COPY --chown=app:app --from=builder /app/lib ./lib
+COPY --chown=app:app --from=builder /app/types ./types
 
 # WORKDIR creates the directory as root; re-own so the `app` user can write
 # benchmark results and other runtime artifacts to the working directory.
