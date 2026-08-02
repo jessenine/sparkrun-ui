@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getMonitorMetrics } from "@/lib/metrics-collector";
+import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
 
 // Transform process info from monitor metrics into the format expected by ProcessList component
 function transformProcessesFromMonitor(metrics: any[]): any {
@@ -49,6 +49,9 @@ function transformProcessesFromMonitor(metrics: any[]): any {
 
 export async function POST(request: NextRequest) {
   try {
+    // Trigger collection to ensure fresh data
+    await collectMetrics();
+    
     const cachedMetrics = getMonitorMetrics();
     console.log("[api/processes] Got metrics:", cachedMetrics ? `count=${cachedMetrics.length}` : "null");
     
