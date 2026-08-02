@@ -122,7 +122,8 @@ export async function collectMetrics(): Promise<void> {
       )) {
         // The output has { timestamp, hosts: [...] } format
         // hosts is an array in the actual output
-        monitorResult.push(obj);
+        // Type assertion is safe here because streamSparkrunNdjson parses JSON
+        monitorResult.push(obj as MonitorMetrics);
       }
       console.log("[collectMetrics] Monitor result from streamSparkrunNdjson:", monitorResult.length, "records");
     } catch (err: any) {
