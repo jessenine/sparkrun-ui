@@ -111,17 +111,26 @@ export async function collectMetrics(): Promise<void> {
   try {
     console.log("[collectMetrics] Starting collection...");
     
-    // Collect monitor metrics
-    const monitorResult = await runSparkrunJson<MonitorMetrics[]>(
-      ["cluster", "monitor", "--json", "--interval", "1"],
-      { timeoutMs: 3000 },
-    ).catch(() => monitorCache.get() ?? []);
+    // Collect monitor metrics - try directly, log any errors
+    let monitorResult: any;
+    try {
+      monitorResult = await runSparkrunJson<MonitorMetrics[]>(
+        ["cluster", "monitor", "--json", "--interval", "1"],
+        { timeoutMs: 3000 },
+      );
+      console.log("[collectMetrics] Monitor result from runSparkrunJson:", monitorResult);
+    } catch (err: any) {
+      console.error("[collectMetrics] Error calling runSparkrunJson:", err);
+      monitorResult = [];
+    }
     
-    console.log("[collectMetrics] Monitor result:", Array.isArray(monitorResult) ? `count=${monitorResult.length}` : typeof monitorResult);
+    console.log("[collectMetrics] Monitor result after processing:", Array.isArray(monitorResult) ? `count=${monitorResult.length}` : typeof monitorResult);
 
     if (Array.isArray(monitorResult) && monitorResult.length > 0) {
       monitorCache.set(monitorResult);
       console.log("[collectMetrics] Cached monitor metrics");
+    } else {
+      console.log("[collectMetrics] Not caching - result is not array or empty");
     }
 
     // Collect process info
