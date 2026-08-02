@@ -175,7 +175,7 @@ export function AggregateStats() {
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[pollMonitor]", err);
+          console.error("[AggregateStats] Error polling monitor:", err);
         }
       } finally {
         if (!cancelled) setConnected(false);
