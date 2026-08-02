@@ -159,7 +159,6 @@ export function AggregateStats() {
         
         const data = await response.json();
         console.log("[AggregateStats] JSON parsed, results:", data.results?.length);
-        setConnected(true);
         
         // Use the latest result
         if (data.results && data.results.length > 0) {
@@ -175,15 +174,16 @@ export function AggregateStats() {
             cpu: push(prev.cpu, agg.cpuAvg),
             gpu: push(prev.gpu, agg.gpuAvg),
           }));
+          setConnected(true);
         } else {
           console.warn("[AggregateStats] No results in monitor data");
+          setConnected(false);
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
           console.error("[AggregateStats] Error polling monitor:", err);
+          setConnected(false);
         }
-      } finally {
-        if (!cancelled) setConnected(false);
       }
     };
     
