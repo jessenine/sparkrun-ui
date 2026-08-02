@@ -118,6 +118,7 @@ export function AggregateStats() {
 
   // Fetch disk info once
   useEffect(() => {
+    console.log("[AggregateStats] Fetching disk info...");
     (async () => {
       try {
         const response = await fetch("/api/disk", {
@@ -125,12 +126,14 @@ export function AggregateStats() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
         });
+        console.log("[AggregateStats] Disk fetch completed, status:", response.status);
         if (response.ok) {
           const data = await response.json();
+          console.log("[AggregateStats] Disk data:", data.results?.length);
           setDiskInfo(data.results || []);
         }
       } catch (err) {
-        console.error("[disk.list]", err);
+        console.error("[disk.list] Error:", err);
       }
     })();
   }, []);
