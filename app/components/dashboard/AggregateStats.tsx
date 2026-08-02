@@ -138,12 +138,14 @@ export function AggregateStats() {
     
     const pollMonitor = async () => {
       try {
+        console.log("[AggregateStats] Fetching /api/monitor...");
         const response = await fetch("/api/monitor", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({}),
           signal: ac.signal,
         });
+        console.log("[AggregateStats] Fetch completed, status:", response.status);
         
         if (cancelled) return;
         
@@ -153,6 +155,7 @@ export function AggregateStats() {
         }
         
         const data = await response.json();
+        console.log("[AggregateStats] JSON parsed, results:", data.results?.length);
         
         // Use the latest result
         if (data.results && data.results.length > 0) {
@@ -169,6 +172,7 @@ export function AggregateStats() {
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
+          console.error("[AggregateStats] Error:", err);
           setConnected(false);
         }
       }
