@@ -128,14 +128,12 @@ export function DashboardLive({
     let cancelled = false;
     
     const pollProcesses = async () => {
-      const hosts = Object.keys(metricHistory);
-      if (hosts.length === 0) return;
-      
+      // Always poll processes - even if metricHistory is empty, we might get data
       try {
         const response = await fetch("/api/processes", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ hosts }),
+          body: JSON.stringify({}),
           signal: ac.signal,
         });
         
