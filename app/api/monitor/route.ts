@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { getMonitorMetrics } from "@/lib/metrics-collector";
+import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
 
 // Transform monitor metrics into the format expected by the dashboard
 // where hosts is a record keyed by IP address
@@ -47,6 +47,9 @@ function transformMonitorMetrics(metrics: any[]): any {
 
 export async function POST(request: NextRequest) {
   try {
+    // Trigger metrics collection on first access
+    await collectMetrics();
+    
     const cachedMetrics = getMonitorMetrics();
     
     if (!cachedMetrics || cachedMetrics.length === 0) {

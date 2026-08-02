@@ -34,18 +34,6 @@ export const viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  console.log("[RootLayout] Initializing metrics collection...");
-  
-  // Start metrics collection on server (runs once per server instance)
-  if (typeof process !== "undefined" && process.env) {
-    import("@/lib/metrics-collector").then(({ startMetricsCollection }) => {
-      startMetricsCollection();
-      console.log("Metrics collection started on server");
-    }).catch((err) => {
-      console.error("Failed to start metrics collection:", err);
-    });
-  }
-
   return (
     <html
       lang="en"
