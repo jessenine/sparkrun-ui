@@ -109,14 +109,19 @@ export async function collectMetrics(): Promise<void> {
 
   isCollecting = true;
   try {
+    console.log("[collectMetrics] Starting collection...");
+    
     // Collect monitor metrics
     const monitorResult = await runSparkrunJson<MonitorMetrics[]>(
       ["cluster", "monitor", "--json", "--interval", "1"],
       { timeoutMs: 3000 },
     ).catch(() => monitorCache.get() ?? []);
+    
+    console.log("[collectMetrics] Monitor result:", Array.isArray(monitorResult) ? `count=${monitorResult.length}` : typeof monitorResult);
 
     if (Array.isArray(monitorResult) && monitorResult.length > 0) {
       monitorCache.set(monitorResult);
+      console.log("[collectMetrics] Cached monitor metrics");
     }
 
     // Collect process info
