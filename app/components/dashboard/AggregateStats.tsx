@@ -158,12 +158,18 @@ export function AggregateStats() {
         // Use the latest result
         if (data.results && data.results.length > 0) {
           const latest = data.results[data.results.length - 1];
+          console.log("[AggregateStats] Monitor data:", {
+            resultsCount: data.results.length,
+            latestHosts: latest.hosts ? Object.keys(latest.hosts).length : 0
+          });
           setTick(latest);
           const agg = aggregate(latest as Tick, diskInfo);
           setHist((prev) => ({
             cpu: push(prev.cpu, agg.cpuAvg),
             gpu: push(prev.gpu, agg.gpuAvg),
           }));
+        } else {
+          console.warn("[AggregateStats] No results in monitor data");
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
