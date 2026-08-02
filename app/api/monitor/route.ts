@@ -5,31 +5,35 @@ import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
 // Transform monitor metrics into the format expected by the dashboard
 // where hosts is a record keyed by IP address
 function transformMonitorMetrics(metrics: any[]): any {
+  // Take the most recent metrics snapshot (last in the array)
+  const latest = metrics[metrics.length - 1] || { hosts: [] };
+  
+  // Build hosts record from the array of hosts in the snapshot
   const hosts: Record<string, any> = {};
   
-  for (const m of metrics) {
-    const hostIp = m.host || "unknown";
-    if (!hosts[hostIp]) {
-      hosts[hostIp] = {
-        hostname: m.cluster || "",
-        uptime_sec: "0",
-        cpu_usage_pct: String(m.cpu || 0),
-        cpu_temp_c: "0",
-        cpu_load_1m: "0",
-        mem_total_mb: "0",
-        mem_used_mb: String(Math.round(m.memory || 0)),
-        mem_used_pct: String(Math.round((m.memory || 0) / 100)),
-        gpu_name: m.gpu ? "NVIDIA" : "",
-        gpu_util_pct: m.gpu ? String(Math.round((m.gpu.used / (m.gpu.total || 1)) * 100)) : "0",
-        gpu_mem_used_mb: m.gpu ? String(m.gpu.used) : "0",
-        gpu_mem_total_mb: m.gpu ? String(m.gpu.total) : "0",
-        gpu_temp_c: "0",
-        gpu_power_w: "0",
-        gpu_power_limit_w: "0",
-        sparkrun_jobs: "0",
-        sparkrun_job_names: "",
-      };
-    }
+  for (const h of latest.hosts || []) {
+    const hostIp = h.host || "unknown";
+    const sample = h.sample || {};
+    
+    hosts[hostIp] = {
+      hostname: sample.hostname || "",
+      uptime_sec: sample.uptime_sec || "0",
+      cpu_usage_pct: sample.cpu_usage_pct || "0",
+      cpu_temp_c: sample.cpu_temp_c || "0",
+      cpu_load_1m: sample.cpu_load_1m || "0",
+      mem_total_mb: sample.mem_total_mb || "0",
+      mem_used_mb: sample.mem_used_mb || "0",
+      mem_used_pct: sample.mem_used_pct || "0",
+      gpu_name: sample.gpu_name || "",
+      gpu_util_pct: sample.gpu_util_pct || "0",
+      gpu_mem_used_mb: sample.gpu_mem_used_mb || "0",
+      gpu_mem_total_mb: sample.gpu_mem_total_mb || "0",
+      gpu_temp_c: sample.gpu_temp_c || "0",
+      gpu_power_w: sample.gpu_power_w || "0",
+      gpu_power_limit_w: sample.gpu_power_limit_w || "0",
+      sparkrun_jobs: sample.sparkrun_jobs || "0",
+      sparkrun_job_names: sample.sparkrun_job_names || "",
+    };
   }
   
   return {
