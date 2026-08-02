@@ -9,11 +9,11 @@ workflow_mode: solo-git  # team-pr | solo-git (default)
 active_flow: build_epic        # build_epic | fix_bug | planning | null
 git:
   branch: main
-  commit: 279750e
+  commit: 8832164
   status: clean          # clean | dirty
 handoff:
-  next_skill: develop-tdd   # e01s05 complete - e02 planning phase next
-  completed_skills: []
+  next_skill: null  # e01 complete - waiting for user direction on e02 or bug fixes
+  completed_skills: [develop-tdd]
 metrics:
   story_start: "2026-08-01T22:40:00Z"  # e01s05 starts
   story_end: "2026-08-01T23:30:00Z"  # e01s05 completes
@@ -25,6 +25,10 @@ epic:
   current_epic_id: e01
   current_story_id: null  # e01 complete - all stories done
   completed_stories: [e01s01, e01s02, e01s03, e01s04, e01s05]
+bugs:
+  active_bug_id: null
+  current_bug_step: null  # No active bug fix
+  completed_bugs: [BUG-20260802T042400]  # AggregateStats polling issue
 ```
 
 ## Usage
