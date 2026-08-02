@@ -95,4 +95,4 @@ EXPOSE 5678
 
 # tini reaps zombies from sparkrun child processes (ssh, docker, etc.).
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
-CMD ["node", ".next/server.js"]
+CMD ["next", "start", "-H", "0.0.0.0", "-p", "5678"]
