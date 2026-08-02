@@ -108,6 +108,7 @@ function push(arr: number[], value: number): number[] {
 }
 
 export function AggregateStats() {
+  console.log("[AggregateStats] Component running");
   const [tick, setTick] = useState<Tick | null>(null);
   const [diskInfo, setDiskInfo] = useState<DiskUsage[]>([]);
   const [hist, setHist] = useState<{ cpu: number[]; gpu: number[] }>({ cpu: [], gpu: [] });
