@@ -166,6 +166,7 @@ export function AggregateStats() {
           });
           setTick(latest);
           const agg = aggregate(latest as Tick, diskInfo);
+          console.log("[AggregateStats] Aggregated:", agg);
           setHist((prev) => ({
             cpu: push(prev.cpu, agg.cpuAvg),
             gpu: push(prev.gpu, agg.gpuAvg),
