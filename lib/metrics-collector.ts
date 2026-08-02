@@ -175,9 +175,7 @@ export async function collectMetrics(): Promise<void> {
 }
 
 export function getMonitorMetrics(): MonitorMetrics[] | null {
-  const value = monitorCache.get();
-  console.log("[metrics-collector] getMonitorMetrics:", value ? `count=${value.length}` : "null");
-  return value;
+  return monitorCache.get();
 }
 
 export function getProcesses(): ProcessInfo[] | null {

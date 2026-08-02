@@ -53,7 +53,6 @@ export async function POST(request: NextRequest) {
     await collectMetrics();
     
     const cachedMetrics = getMonitorMetrics();
-    console.log("[api/processes] Got metrics:", cachedMetrics ? `count=${cachedMetrics.length}` : "null");
     
     if (!cachedMetrics || cachedMetrics.length === 0) {
       return NextResponse.json({

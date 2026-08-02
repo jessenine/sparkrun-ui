@@ -51,17 +51,12 @@ function transformMonitorMetrics(metrics: any[]): any {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("[api/monitor] POST request received, calling collectMetrics...");
-    
     // Trigger metrics collection on first access
     await collectMetrics();
-    console.log("[api/monitor] collectMetrics complete, getting cached metrics...");
     
     const cachedMetrics = getMonitorMetrics();
-    console.log("[api/monitor] Got metrics:", cachedMetrics ? `count=${cachedMetrics.length}` : "null");
     
     if (!cachedMetrics || cachedMetrics.length === 0) {
-      console.log("[api/monitor] No metrics available");
       return NextResponse.json({
         results: [],
         source: "cached",
