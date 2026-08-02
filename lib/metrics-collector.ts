@@ -1,4 +1,4 @@
-import { runSparkrunJson, streamSparkrunNdjson } from "./sparkrun";
+import { runSparkrunJson, runSparkrunText } from "./sparkrun";
 import { ClusterStatusSchema, type ClusterStatus as SparkrunClusterStatus } from "./schemas";
 
 // Re-export the schema for API routes
@@ -113,19 +113,28 @@ export async function collectMetrics(): Promise<void> {
   try {
     console.log("[collectMetrics] Starting collection...");
     
-    // Collect monitor metrics using streamSparkrunNdjson (output is NDJSON)
-    const monitorResult: MonitorMetrics[] = [];
+    // Collect monitor metrics using runSparkrunText with timeout
+    // The output is NDJSON - one JSON object per line for each snapshot
+    let monitorResult: MonitorMetrics[] = [];
     try {
-      for await (const obj of streamSparkrunNdjson(
+      const result = await runSparkrunText(
         ["cluster", "monitor", "--json", "--interval", "1"],
-        { signal: new AbortController().signal },
-      )) {
-        // The output has { timestamp, hosts: [...] } format
-        // hosts is an array in the actual output
-        // Type assertion is safe here because streamSparkrunNdjson parses JSON
-        monitorResult.push(obj as MonitorMetrics);
+        { timeoutMs: 3000 },
+      );
+      console.log("[collectMetrics] Monitor output:", result.stdout.substring(0, 200), "...");
+      
+      // Parse NDJSON output (multiple JSON objects, one per line)
+      const lines = result.stdout.trim().split("\n");
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const obj = JSON.parse(line) as MonitorMetrics;
+          monitorResult.push(obj);
+        } catch {
+          // Skip non-JSON lines
+        }
       }
-      console.log("[collectMetrics] Monitor result from streamSparkrunNdjson:", monitorResult.length, "records");
+      console.log("[collectMetrics] Monitor result from NDJSON:", monitorResult.length, "records");
     } catch (err: any) {
       console.error("[collectMetrics] Error streaming monitor metrics:", err);
     }
