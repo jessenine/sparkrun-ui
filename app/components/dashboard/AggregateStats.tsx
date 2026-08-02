@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Cpu, MemoryStick, Server, Thermometer, Zap, HardDrive } from "lucide-react";
+
+console.log("[AggregateStats] Component mounted");
 import { Card, CardBody } from "@/app/components/ui/Card";
 import type { DiskUsage } from "@/lib/schemas";
 
