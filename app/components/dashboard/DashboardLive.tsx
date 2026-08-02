@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Rocket, List } from "lucide-react";
-import { rpc } from "@/lib/rpc/client";
 import type { ClusterStatus, Job } from "@/lib/schemas";
 import type { RunningRecipeDisplay } from "@/lib/runningRecipes";
 import { Card, CardBody } from "@/app/components/ui/Card";
@@ -43,62 +42,57 @@ export function DashboardLive({
   
   const MAX_HISTORY = 15; // 15 data points at 2-3s intervals = ~30-45 seconds
 
+  // Poll monitor API for metrics (replaces ORPC stream)
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
-    (async () => {
+    
+    const pollMonitor = async () => {
       try {
-        const iter = await rpc.status.stream({ intervalMs: 3000 }, { signal: ac.signal });
-        for await (const next of iter) {
-          if (cancelled) break;
-          setStatus(next);
-          setConnected(true);
+        const response = await fetch("/api/monitor", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ intervalSec: 2 }),
+          signal: ac.signal,
+        });
+        
+        if (cancelled) return;
+        
+        if (!response.ok) {
+          console.error("Monitor API error:", response.statusText);
+          setConnected(false);
+          return;
         }
-      } catch (err) {
-        if (!cancelled) setConnected(false);
-        if (!(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[status.stream]", err);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      ac.abort();
-    };
-  }, []);
-
-  // Subscribe to monitor stream for per-host metrics
-  useEffect(() => {
-    const ac = new AbortController();
-    let cancelled = false;
-    (async () => {
-      try {
-        const iter = await rpc.monitor.stream({ intervalSec: 2 }, { signal: ac.signal });
-        for await (const next of iter) {
-          if (cancelled) break;
-          // Update metric history per host
+        
+        const data = await response.json();
+        setConnected(true);
+        
+        // Use the latest result from the batch
+        if (data.results && data.results.length > 0) {
+          const latest = data.results[data.results.length - 1];
+          setStatus(latest);
+          
+          // Update metric history
           setMetricHistory((prev) => {
             const nextHistory = { ...prev };
-            
-            // next is a Tick with hosts Record<string, HostMetrics>
-            const hosts = (next as { hosts: Record<string, Record<string, string | undefined>> }).hosts;
+            const hosts = (latest as { hosts: Record<string, any> }).hosts;
             
             for (const [hostIp, metrics] of Object.entries(hosts)) {
               if (!nextHistory[hostIp]) {
                 nextHistory[hostIp] = {};
               }
               
-              // Update each metric history
               const hostHistory = nextHistory[hostIp];
               for (const [metricName, value] of Object.entries(metrics)) {
                 if (value === undefined) continue;
-                const numVal = parseFloat(value);
+                // Convert to string first, then parse as number
+                const strVal = String(value);
+                const numVal = parseFloat(strVal);
                 if (!Number.isFinite(numVal)) continue;
                 
                 const history = hostHistory[metricName] || [];
                 const newHistory = [...history, numVal];
                 
-                // Keep only last N values
                 if (newHistory.length > MAX_HISTORY) {
                   newHistory.shift();
                 }
@@ -112,64 +106,110 @@ export function DashboardLive({
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[monitor.stream]", err);
+          console.error("[pollMonitor]", err);
+          setConnected(false);
         }
       }
-    })();
+    };
+    
+    pollMonitor();
+    const interval = setInterval(pollMonitor, 2000);
+    
     return () => {
       cancelled = true;
       ac.abort();
+      clearInterval(interval);
     };
   }, []);
 
-  // Subscribe to process metrics stream for per-host process data
+  // Poll processes API (replaces ORPC processes stream)
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
-    (async () => {
+    
+    const pollProcesses = async () => {
+      const hosts = Object.keys(metricHistory);
+      if (hosts.length === 0) return;
+      
       try {
-        const hosts = Object.keys(metricHistory);
-        if (hosts.length === 0) return;
+        const response = await fetch("/api/processes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hosts }),
+          signal: ac.signal,
+        });
         
-        const result = await rpc.monitor.processes({ hosts }, { signal: ac.signal });
         if (cancelled) return;
+        
+        if (!response.ok) {
+          console.error("Processes API error:", response.statusText);
+          return;
+        }
+        
+        const data = await response.json();
         
         // Update process history for each host
         setProcessHistory((prev) => {
           const nextHistory = { ...prev };
-          nextHistory["127.0.0.1"] = result.processes;
+          for (const { host, entries } of data.processes || []) {
+            nextHistory[host] = entries;
+          }
           return nextHistory;
         });
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[monitor.processes]", err);
+          console.error("[pollProcesses]", err);
         }
       }
-    })();
+    };
+    
+    pollProcesses();
+    const interval = setInterval(pollProcesses, 3000);
+    
     return () => {
       cancelled = true;
       ac.abort();
+      clearInterval(interval);
     };
   }, [Object.keys(metricHistory).length]);
 
+  // Poll jobs endpoint (replaces ORPC status.jobs)
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
-    (async () => {
+    
+    const pollJobs = async () => {
       try {
-        const fetchedJobs = await rpc.status.jobs({ signal: ac.signal });
+        const response = await fetch("/api/jobs", {
+          method: "POST",
+          signal: ac.signal,
+        });
+        
+        if (cancelled) return;
+        
+        if (!response.ok) {
+          console.error("Jobs API error:", response.statusText);
+          return;
+        }
+        
+        const data = await response.json();
         if (!cancelled) {
-          setJobs(fetchedJobs.jobs);
+          setJobs(data.jobs || []);
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[status.jobs]", err);
+          console.error("[pollJobs]", err);
         }
       }
-    })();
+    };
+    
+    pollJobs();
+    const interval = setInterval(pollJobs, 5000);
+    
     return () => {
       cancelled = true;
       ac.abort();
+      clearInterval(interval);
     };
   }, []);
 
