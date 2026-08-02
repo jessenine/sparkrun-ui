@@ -6,17 +6,58 @@ export { ClusterStatusSchema, type SparkrunClusterStatus };
 
 // Internal types for metrics collection
 type MonitorMetrics = {
-  cluster: string;
-  timestamp: string;
-  host: string;
-  cpu: number;
-  memory: number;
-  disk: number;
-  network: number;
-  gpu?: {
-    total: number;
-    used: number;
-  };
+  timestamp: number;
+  hosts: Array<{
+    host: string;
+    error: string | null;
+    sample: {
+      timestamp: string;
+      hostname: string;
+      uptime_sec: string;
+      cpu_load_1m: string;
+      cpu_load_5m: string;
+      cpu_load_15m: string;
+      cpu_usage_pct: string;
+      cpu_freq_mhz: string;
+      cpu_temp_c: string;
+      mem_total_mb: string;
+      mem_used_mb: string;
+      mem_available_mb: string;
+      mem_used_pct: string;
+      swap_total_mb: string;
+      swap_used_mb: string;
+      gpu_name: string;
+      gpu_util_pct: string;
+      gpu_mem_used_mb: string;
+      gpu_mem_total_mb: string;
+      gpu_mem_used_pct: string;
+      gpu_temp_c: string;
+      gpu_power_w: string;
+      gpu_power_limit_w: string;
+      gpu_clock_mhz: string;
+      gpu_mem_clock_mhz: string;
+      sparkrun_jobs: string;
+      sparkrun_job_names: string;
+      gpu_encoder_pct: string;
+      gpu_decoder_pct: string;
+      gpu_fan_pct: string;
+      mem_bufcache_mb: string;
+    };
+    workloads: Array<{
+      cluster_id: string;
+      recipe: string;
+      runtime: string;
+      ranks_on_host: number;
+      containers: Array<{
+        name: string;
+        role: string;
+        status: string;
+        image: string;
+      }>;
+    }>;
+    used_slots: number;
+    free_slots: number;
+  }>;
 };
 
 type ProcessInfo = {
