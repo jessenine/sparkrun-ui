@@ -67,14 +67,14 @@ export function normalizeMonitorOutput(raw: unknown): z.infer<typeof TickSchema>
       // Handle null/undefined samples gracefully - use an empty object instead of skipping
       const sampleRaw = entry.sample;
       let sample = sampleRaw !== null && sampleRaw !== undefined && typeof sampleRaw === "object"
-        ? sampleRaw as Record<string, string | undefined>
-        : {};
-      // Parse processes array if present
+        ? sampleRaw as Record<string, string | undefined | ProcessEntry[]>
+        : {} as Record<string, string | undefined | ProcessEntry[]>;
+      // Parse processes array if present (either already an array or JSON string)
       if (sample.processes) {
         try {
           const parsed = Array.isArray(sample.processes)
-            ? sample.processes as z.infer<typeof HostMetricsSchema>["processes"]
-            : (JSON.parse(sample.processes) as z.infer<typeof HostMetricsSchema>["processes"]);
+            ? (sample.processes as ProcessEntry[])
+            : (JSON.parse(sample.processes) as ProcessEntry[]);
           sample = { ...sample, processes: parsed };
         } catch {
           // Keep original if JSON parsing fails
