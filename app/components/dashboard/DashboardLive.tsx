@@ -153,8 +153,8 @@ export function DashboardLive({
     let cancelled = false;
     (async () => {
       try {
-        // Get hosts from ref to access the latest value without dependency
-        const hosts = Object.keys(metricHistoryRef.current);
+        // Get hosts from current metricHistory state
+        const hosts = Object.keys(metricHistory);
         if (hosts.length === 0) {
           console.log('[monitor.processes] No hosts available yet, waiting for monitor data');
           return;
@@ -179,11 +179,9 @@ export function DashboardLive({
         }
       }
     })();
-    return () => {
-      cancelled = true;
-      ac.abort();
-    };
-  }, [monitorLoaded]); // Run when monitor data is loaded
+    // Run when metricHistory changes (any host added/removed)
+    // This ensures the effect re-runs when new hosts are added to metricHistory
+  }, [metricHistory]);
 
   useEffect(() => {
     const ac = new AbortController();

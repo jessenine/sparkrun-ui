@@ -2,6 +2,16 @@ import { os, eventIterator } from "@orpc/server";
 import { z } from "zod";
 import { streamSparkrunNdjson } from "@/lib/sparkrun";
 import { normalizeProcessList } from "./processes";
+import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
+
+// Process entry interface (duplicate of ProcessEntry in processes.ts to avoid circular deps)
+interface ProcessEntry {
+  user: string;
+  pid: number;
+  cpu: number;
+  mem: number;
+  command: string;
+}
 
 const HostMetricsSchema = z
   .object({
@@ -110,19 +120,58 @@ export const processes = os
     })),
   }))
   .handler(async function ({ input, signal }) {
-    const args = ["cluster", "monitor", "--json", "--interval", "2"];
-    if (input?.cluster) args.push("--cluster", input.cluster);
-    else if (input?.hosts?.length) args.push("--hosts", input.hosts.join(","));
-    
-    // Run the command once and collect output
-    const output = await streamSparkrunNdjson<string>(args, { signal });
-    const allLines = [];
-    for await (const line of output) {
-      if (signal?.aborted) break;
-      allLines.push(line);
+    // Use cached monitor metrics instead of running ps aux
+    // This provides workload/process info without needing direct host access
+    try {
+      await collectMetrics();
+      const cachedMetrics = getMonitorMetrics();
+      
+      if (!cachedMetrics || cachedMetrics.length === 0) {
+        return {
+          timestamp: Date.now(),
+          processes: [],
+        };
+      }
+      
+      // Take the most recent metrics snapshot
+      const latest = cachedMetrics[cachedMetrics.length - 1];
+      const hosts = latest?.hosts || [];
+      
+      // Transform workloads into process entries
+      const processes: ProcessEntry[] = [];
+      
+      for (const h of hosts) {
+        const hostIp = h.host || "unknown";
+        
+        if (input?.hosts && !input.hosts.includes(hostIp)) {
+          continue;
+        }
+        
+        for (const w of h.workloads || []) {
+          for (const c of w.containers || []) {
+            processes.push({
+              user: w.recipe || "unknown",
+              pid: 0, // No PID available from sparkrun - use 0 as placeholder
+              cpu: 0, // No CPU % available from sparkrun - use 0 as placeholder
+              mem: 0, // No MEM % available from sparkrun - use 0 as placeholder
+              command: `${c.name} (${hostIp})`,
+            });
+          }
+        }
+      }
+      
+      // Sort by command name for consistent ordering
+      processes.sort((a, b) => a.command.localeCompare(b.command));
+      
+      return {
+        timestamp: Date.now(),
+        processes: processes.slice(0, 5), // Top 5 processes
+      };
+    } catch (err) {
+      console.error("[monitor.processes] Error fetching cached metrics:", err);
+      return {
+        timestamp: Date.now(),
+        processes: [],
+      };
     }
-    
-    // Parse the combined output
-    const fullOutput = allLines.join("\n");
-    return normalizeProcessList(fullOutput);
   });
