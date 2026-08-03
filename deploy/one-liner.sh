@@ -39,11 +39,12 @@ log_info "Step 1: Creating project directory..."
 mkdir -p /home/shade/Pidev_proj
 
 log_info "Step 2: Cloning repository..."
-if [[ ! -d "/home/shade/Pidev_proj/sparkrun-ui" ]]; then
-    git clone https://github.com/jessenine/sparkrun-ui.git /home/shade/Pidev_proj/sparkrun-ui
+mkdir -p /home/shade/Pidev_proj/sparkrun-ui
+cd /home/shade/Pidev_proj/sparkrun-ui
+if [[ ! -d "/home/shade/Pidev_proj/sparkrun-ui/.git" ]]; then
+    git clone https://github.com/jessenine/sparkrun-ui.git .
 else
     log_info "Repository already exists, updating..."
-    cd /home/shade/Pidev_proj/sparkrun-ui
     git pull origin main
 fi
 
