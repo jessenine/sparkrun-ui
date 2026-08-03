@@ -1,7 +1,17 @@
 import { os, eventIterator } from "@orpc/server";
 import { z } from "zod";
-import { streamSparkrunNdjson } from "@/lib/sparkrun";
+import { streamSparkrunNdjson, runSparkrunJson, runSparkrunText } from "@/lib/sparkrun";
 import { normalizeProcessList } from "./processes";
+import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
+
+// Process entry interface (duplicate of ProcessEntry in processes.ts to avoid circular deps)
+interface ProcessEntry {
+  user: string;
+  pid: number;
+  cpu: number;
+  mem: number;
+  command: string;
+}
 
 const HostMetricsSchema = z
   .object({
@@ -110,19 +120,55 @@ export const processes = os
     })),
   }))
   .handler(async function ({ input, signal }) {
-    const args = ["cluster", "monitor", "--json", "--interval", "2"];
-    if (input?.cluster) args.push("--cluster", input.cluster);
-    else if (input?.hosts?.length) args.push("--hosts", input.hosts.join(","));
-    
-    // Run the command once and collect output
-    const output = await streamSparkrunNdjson<string>(args, { signal });
-    const allLines = [];
-    for await (const line of output) {
-      if (signal?.aborted) break;
-      allLines.push(line);
+    // Run ps aux on each target host and collect results
+    try {
+      const targetArgs = [];
+      if (input?.cluster) targetArgs.push("--cluster", input.cluster);
+      else if (input?.hosts?.length) targetArgs.push("--hosts", input.hosts.join(","));
+
+      // Get list of target hosts first
+      const statusResult = await runSparkrunJson<{ hosts: string[] }>(
+        ["cluster", "status", "--json", ...targetArgs],
+        { signal },
+      );
+      const targetHosts = input?.hosts || statusResult.hosts || [];
+
+      // Collect ps aux output from each host
+      const allProcesses: ProcessEntry[] = [];
+
+      for (const host of targetHosts) {
+        if (signal?.aborted) break;
+
+        try {
+          // Run ps aux on the remote host via sparkrun host exec
+          const result = await runSparkrunText(
+            ["host", "exec", host, "--", "ps", "aux"],
+            { signal, timeoutMs: 10000 }, // 10s timeout per host
+          );
+
+          if (result.code === 0) {
+            const normalized = normalizeProcessList(result.stdout);
+            allProcesses.push(...normalized.processes);
+          } else {
+            console.warn(`[monitor.processes] ps aux failed on ${host}: ${result.stderr}`);
+          }
+        } catch (err) {
+          console.warn(`[monitor.processes] Error running ps aux on ${host}:`, err);
+        }
+      }
+
+      // Sort by CPU descending and return top 5
+      allProcesses.sort((a, b) => b.cpu - a.cpu);
+
+      return {
+        timestamp: Date.now(),
+        processes: allProcesses.slice(0, 5),
+      };
+    } catch (err) {
+      console.error("[monitor.processes] Error fetching process data:", err);
+      return {
+        timestamp: Date.now(),
+        processes: [],
+      };
     }
-    
-    // Parse the combined output
-    const fullOutput = allLines.join("\n");
-    return normalizeProcessList(fullOutput);
   });

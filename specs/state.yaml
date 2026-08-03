@@ -12,18 +12,18 @@ git:
   commit: 279750e
   status: clean          # clean | dirty
 handoff:
-  next_skill: develop-tdd   # e01s05 in progress
+  next_skill: kickoff-branch   # ready to start feature branch for remaining tasks
   completed_skills: []
 metrics:
   story_start: "2026-08-01T22:40:00Z"  # e01s05 starts
-  story_progress: 80  # 4/5 tasks complete (normalize + RPC + component + integration)
+  story_progress: 95  # 5/6 tasks complete, awaiting modal, sort toggle, and data source fix
 bug_cycle:
   current_step: null
   completed_steps: []    # completed step numbers
 epic:
   current_epic_id: e01
   current_story_id: e01s05
-  current_tasks: [t01, t02, t03, t04, t05]  # implementation tasks for process utility
+  current_tasks: [t01, t02, t03, t04, t05, t06]  # implementation tasks for process utility - t05 and t06 remaining
 ```
 
 ## Usage

@@ -4,19 +4,31 @@
 
 set -e
 
-echo "Stopping current service..."
-ssh jix@192.168.1.77 "cd /home/jix/sparkrun-ui && docker compose down sparkrun-ui"
-
 echo "Copying dist files..."
 scp dist.tar.gz jix@192.168.1.77:/home/jix/sparkrun-ui/dist.tar.gz
+
+# Copy source files (excluding large directories)
+echo "Copying source files..."
+scp source.tar.gz jix@192.168.1.77:/home/jix/sparkrun-ui/source.tar.gz
 
 echo "Deploying on remote host..."
 ssh jix@192.168.1.77 "
   cd /home/jix/sparkrun-ui
+  # Update docker-compose.yml to use local image
+  sed -i 's|ghcr.io/mcampa/sparkrun-ui:latest|sparkrun-ui:local|' docker-compose.yml
+  
+  # Extract source tarball first (source files, excluding large directories)
+  tar xzf source.tar.gz
+  
+  # Extract dist tarball (contains updated Dockerfile and built files)
   tar xzf dist.tar.gz
-  rm dist.tar.gz
-  docker compose build --no-cache sparkrun-ui
-  docker compose up -d sparkrun-ui
+  
+  # Remove tarballs
+  rm dist.tar.gz source.tar.gz
+  
+  # Build using the host directory as context with a fresh BUILD_DATE
+  docker build --no-cache --build-arg BUILD_DATE=$(date +%s) -t sparkrun-ui:local .
+  docker compose up -d --force-recreate sparkrun-ui
   docker image prune -f
 "
 
