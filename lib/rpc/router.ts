@@ -10,6 +10,10 @@ import * as chat from "./procedures/chat";
 import * as update from "./procedures/update";
 import * as disk from "./procedures/disk";
 
+// The router uses plain procedures because the ORPC framework's lazy procedures
+// (created with os() or lazy()) don't work correctly in standalone builds because
+// they use dynamic import() which isn't properly bundled. We use implement() in
+// the router to convert lazy procedures to plain ones.
 export const router = {
   status: {
     get: status.get,

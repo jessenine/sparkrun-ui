@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # -----------------------------------------------------------------------------
-# Builder: install JS deps + compile Next.js to a standalone server bundle.
+# Builder: install JS deps + compile Next.js server.
 # -----------------------------------------------------------------------------
 FROM node:22-bookworm-slim AS builder
 
@@ -52,8 +52,12 @@ RUN apt-get update \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list \
   && apt-get update \
   && apt-get install --no-install-recommends -y docker-ce-cli \
+  && apt-get update \
+  && apt-get install --no-install-recommends -y docker-ce-cli \
   # uv is needed by sparkrun for self-upgrade and running tools via uvx.
   && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh \
+  # Install next CLI for 'next start' command
+  && npm install -g next \
   && apt-get purge -y --auto-remove gnupg curl \
   && rm -rf /var/lib/apt/lists/*
 
@@ -84,12 +88,14 @@ ENV HOME=/home/app \
     HOSTNAME=0.0.0.0 \
     SPARKRUN_BIN=sparkrun
 
-# Standalone Next.js server bundle + static + public.
-COPY --chown=app:app --from=builder /app/.next/standalone/.next ./.next
-COPY --chown=app:app --from=builder /app/.next/standalone/server.js ./server.js
-COPY --chown=app:app --from=builder /app/.next/standalone/node_modules ./node_modules
-COPY --chown=app:app --from=builder /app/.next/static ./.next/static
+# Next.js server bundle + static + public + source files.
+COPY --chown=app:app --from=builder /app/.next ./.next
+COPY --chown=app:app --from=builder /app/node_modules ./node_modules
 COPY --chown=app:app --from=builder /app/public ./public
+# Copy source files for API routes and other server-side code
+COPY --chown=app:app --from=builder /app/app ./app
+COPY --chown=app:app --from=builder /app/lib ./lib
+COPY --chown=app:app --from=builder /app/types ./types
 
 # WORKDIR creates the directory as root; re-own so the `app` user can write
 # benchmark results and other runtime artifacts to the working directory.
@@ -102,4 +108,4 @@ EXPOSE 5678
 
 # tini reaps zombies from sparkrun child processes (ssh, docker, etc.).
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
-CMD ["node", "server.js"]
+CMD ["next", "start", "-H", "0.0.0.0", "-p", "5678"]
