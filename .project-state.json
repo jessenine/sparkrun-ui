@@ -1,0 +1,91 @@
+{
+  "project": "sparkrun-ui",
+  "description": "Secure local process monitoring for cluster nodes",
+  "repository": "https://github.com/jessenine/sparkrun-ui",
+  "location": "/home/shade/Pidev_proj/sparkrun-ui",
+  "status": "ready-for-deployment",
+  "architecture": {
+    "agent": {
+      "language": "Rust",
+      "location": "agent/sparkrun-local-agent/",
+      "binding": "127.0.0.1:8081",
+      "features": [
+        "safe /proc filesystem reads",
+        "no command injection risk",
+        "local-only binding"
+      ]
+    },
+    "client": {
+      "language": "TypeScript",
+      "location": "lib/rpc/agent/client.ts"
+    },
+    "rpc": {
+      "procedures": "lib/rpc/procedures/monitor.ts",
+      "endpoint": "queryAgentProcesses(host, 10)"
+    }
+  },
+  "security": {
+    "features": [
+      "NoNewPrivileges",
+      "ProtectSystem=strict",
+      "ProtectHome=true",
+      "PrivateTmp=true",
+      "RestrictNamespaces=true",
+      "RestrictRealtime=true",
+      "RestrictSUIDSGID=true",
+      "LockPersonality=true",
+      "MemoryDenyWriteExecute=true"
+    ],
+    "resource_limits": {
+      "memory": "64M",
+      "cpu_quota": "10%"
+    }
+  },
+  "deployment": {
+    "scripts": [
+      "deploy/one-liner.sh",
+      "deploy/install-agent.sh",
+      "deploy/deploy-agent.sh",
+      "deploy/quick-deploy.sh",
+      "deploy/install.sh"
+    ],
+    "systemd_service": "/etc/systemd/system/sparkrun-local-agent.service",
+    "binary_path": "/usr/local/bin/sparkrun-local-agent"
+  },
+  "api": {
+    "endpoints": [
+      "/health",
+      "/processes",
+      "/metrics"
+    ],
+    "binding": "127.0.0.1:8081"
+  },
+  "documentation": [
+    "QUICK-START-DEPLOYMENT.md",
+    "DEPLOYMENT_GUIDE.md",
+    "DEPLOYMENT_INSTRUCTIONS.md",
+    "SECURITY_AUDIT.md",
+    "IMPLEMENTATION_SUMMARY.md",
+    "IMPLEMENTATION_COMPLETE.md"
+  ],
+  "verification": {
+    "script": "verify-integration.sh",
+    "build_status": "npm run build and npm run typecheck pass"
+  },
+  "commits": {
+    "latest": "5f2c25d - fix: ensure src directory is created before building",
+    "history": [
+      "5f2c25d - fix: ensure src directory is created before building",
+      "da156b8 - fix: rewrite one-liner.sh to be more robust",
+      "7cbf529 - fix: handle existing repo directory correctly",
+      "bdaaa55 - fix: create directories before cloning repo",
+      "f394dc7 - add: QUICK-START-DEPLOYMENT.md"
+    ]
+  },
+  "next_steps": [
+    "SSH to each cluster member node and run: curl -sSL https://raw.githubusercontent.com/jessenine/sparkrun-ui/main/deploy/one-liner.sh | sudo bash",
+    "Verify agent is running with: curl http://127.0.0.1:8081/health",
+    "Restart UI service: sudo systemctl restart sparkrun-ui",
+    "Visit dashboard at: http://192.168.1.77:5678/dashboard"
+  ]
+}
