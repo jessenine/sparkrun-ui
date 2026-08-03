@@ -41,7 +41,10 @@ mkdir -p /home/shade/Pidev_proj
 log_info "Step 2: Cloning repository..."
 mkdir -p /home/shade/Pidev_proj/sparkrun-ui
 cd /home/shade/Pidev_proj/sparkrun-ui
+
+# Check if .git directory exists (not current directory)
 if [[ ! -d "/home/shade/Pidev_proj/sparkrun-ui/.git" ]]; then
+    log_info "Cloning repository..."
     git clone https://github.com/jessenine/sparkrun-ui.git .
 else
     log_info "Repository already exists, updating..."
