@@ -32,6 +32,7 @@ const HostMetricsSchema = z
     gpu_power_limit_w: z.string().optional(),
     sparkrun_jobs: z.string().optional(),
     sparkrun_job_names: z.string().optional(),
+    processes: z.string().optional(),  // JSON array of top 5 processes
   })
   .loose();
 
@@ -56,9 +57,17 @@ export function normalizeMonitorOutput(raw: unknown): z.infer<typeof TickSchema>
       const entry = h as Record<string, unknown>;
       // Handle null/undefined samples gracefully - use an empty object instead of skipping
       const sampleRaw = entry.sample;
-      const sample = sampleRaw !== null && sampleRaw !== undefined && typeof sampleRaw === "object"
+      let sample = sampleRaw !== null && sampleRaw !== undefined && typeof sampleRaw === "object"
         ? sampleRaw as Record<string, string | undefined>
         : {};
+      // Parse processes JSON if present
+      if (sample.processes && typeof sample.processes === "string") {
+        try {
+          sample = { ...sample, processes: JSON.parse(sample.processes) as any };
+        } catch {
+          // Keep original if JSON parsing fails
+        }
+      }
       const hostKey = (entry.host as string) || "unknown";
       hosts[hostKey] = sample as z.infer<typeof HostMetricsSchema>;
     }
