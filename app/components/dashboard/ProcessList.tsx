@@ -14,6 +14,7 @@ export interface ProcessListProps {
   processes: ProcessEntry[];
   onProcessClick?: (process: ProcessEntry) => void;
   className?: string;
+  loading?: boolean;
 }
 
 export function ProcessList({
@@ -21,6 +22,7 @@ export function ProcessList({
   processes,
   onProcessClick,
   className = "",
+  loading = false,
 }: ProcessListProps) {
   const [sortBy, setSortBy] = useState<"cpu" | "mem">("cpu");
   const [selectedProcess, setSelectedProcess] = useState<ProcessEntry | null>(null);
@@ -76,6 +78,11 @@ export function ProcessList({
         </div>
         {processes.length === 0 ? (
           <p className="text-xs text-zinc-500">No process data available</p>
+        ) : loading ? (
+          <div className="flex items-center justify-center py-4">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-zinc-300 border-t-transparent animate-spin" />
+            <span className="ml-2 text-xs text-zinc-500">Loading process data...</span>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -89,7 +96,7 @@ export function ProcessList({
                 </tr>
               </thead>
               <tbody>
-                {sortedProcesses.slice(0, 5).map((p, i) => (
+                {sortedProcesses.slice(0, 5).map((p) => (
                   <tr
                     key={p.pid}
                     className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer"

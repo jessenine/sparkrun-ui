@@ -44,14 +44,16 @@ export function DashboardLive({
   // Track if monitor data has been loaded at least once
   const [monitorLoaded, setMonitorLoaded] = useState(false);
   
-  // Track if we've attempted to load processes
-  const [processesLoaded, setProcessesLoaded] = useState(false);
+  // Track process loading state per host: hostIp -> boolean
+  const [processLoading, setProcessLoading] = useState<Record<string, boolean>>({});
   
   const MAX_HISTORY = 15; // 15 data points at 2-3s intervals = ~30-45 seconds
 
   // Use a ref to track the latest metricHistory for the process subscription
-  const metricHistoryRef = useRef(metricHistory);
-  metricHistoryRef.current = metricHistory;
+  const metricHistoryRef = useRef<Record<string, Record<string, number[]>>>({});
+  useEffect(() => {
+    metricHistoryRef.current = metricHistory;
+  }, [metricHistory]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -82,7 +84,6 @@ export function DashboardLive({
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
-    let receivedData = false;
     let firstDataReceived = false;
     
     (async () => {
@@ -110,8 +111,6 @@ export function DashboardLive({
               console.warn('[monitor.stream] No hosts data in tick:', next);
               return nextHistory;
             }
-            
-            receivedData = true;
             
             for (const [hostIp, metrics] of Object.entries(hosts)) {
               if (!nextHistory[hostIp]) {
@@ -155,20 +154,22 @@ export function DashboardLive({
   // Subscribe to process metrics stream for per-host process data
   useEffect(() => {
     const ac = new AbortController();
-    let cancelled = false;
+    let cancelled = false; // eslint-disable-line prefer-const
     (async () => {
       try {
         // Get hosts from current metricHistory state
         const hosts = Object.keys(metricHistory);
         if (hosts.length === 0) {
           console.log('[monitor.processes] No hosts available yet, waiting for monitor data');
-          // If we've loaded monitor data but still have no hosts, set processesLoaded
-          if (monitorLoaded) {
-            setProcessHistory({});
-            setProcessesLoaded(true);
-          }
           return;
         }
+        
+        // Mark all hosts as loading
+        const loadingState: Record<string, boolean> = {};
+        for (const host of hosts) {
+          loadingState[host] = true;
+        }
+        setProcessLoading(loadingState);
         
         console.log('[monitor.processes] Fetching process data for hosts:', hosts);
         const result = await rpc.monitor.processes({ hosts }, { signal: ac.signal });
@@ -182,7 +183,13 @@ export function DashboardLive({
           }
           return nextHistory;
         });
-        setProcessesLoaded(true);
+        
+        // Mark all hosts as loaded (no longer loading)
+        const loadedState: Record<string, boolean> = {};
+        for (const host of hosts) {
+          loadedState[host] = false;
+        }
+        setProcessLoading(loadedState);
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
           console.error("[monitor.processes]", err);
@@ -191,7 +198,7 @@ export function DashboardLive({
     })();
     // Run when metricHistory changes (any host added/removed)
     // This ensures the effect re-runs when new hosts are added to metricHistory
-  }, [metricHistory, monitorLoaded]);
+  }, [metricHistory]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -294,6 +301,7 @@ export function DashboardLive({
                       <ProcessList
                         title="Top Processes"
                         processes={processHistory[hostIp] || []}
+                        loading={processLoading[hostIp] || false}
                       />
                     </div>
                   </CardBody>

@@ -13,9 +13,9 @@
 # `ports:` block).
 services:
   sparkrun-ui:
-    image: sparkrun-ui:local
+    build: .
     # Use locally built image (do not pull from registry)
-    pull_policy: local
+    image: sparkrun-ui:local
     container_name: sparkrun-ui
     restart: unless-stopped
 
