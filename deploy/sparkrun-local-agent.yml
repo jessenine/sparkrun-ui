@@ -1,0 +1,116 @@
+---
+- name: Deploy SparkRun Local Agent
+  hosts: cluster_nodes
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    agent_version: "0.2.0"
+    agent_port: 8081
+    agent_interval_ms: 2000
+    agent_max_processes: 5
+    agent_user: "app"
+    agent_group: "app"
+    
+  tasks:
+    - name: Check if agent is already installed
+      stat:
+        path: /usr/local/bin/sparkrun-local-agent
+      register: agent_installed
+      
+    - name: Install required packages
+      apt:
+        name:
+          - build-essential
+          - curl
+          - systemd
+        state: present
+      when: agent_installed.stat.exists == false or ansible_distribution == "Ubuntu"
+      
+    - name: Create agent user and group
+      group:
+        name: "{{ agent_group }}"
+        state: present
+      when: agent_group != "app"
+      
+    - name: Create agent user
+      user:
+        name: "{{ agent_user }}"
+        group: "{{ agent_group }}"
+        home: /var/lib/sparkrun
+        create_home: yes
+        shell: /usr/sbin/nologin
+        system: yes
+      when: agent_user != "app"
+      
+    - name: Create agent working directory
+      file:
+        path: /var/lib/sparkrun
+        state: directory
+        owner: "{{ agent_user }}"
+        group: "{{ agent_group }}"
+        mode: '0755'
+        
+    - name: Download agent binary
+      get_url:
+        url: "https://github.com/mcampa/sparkrun-ui/releases/download/v{{ agent_version }}/sparkrun-local-agent-linux-amd64"
+        dest: /tmp/sparkrun-local-agent
+        mode: '0755'
+      register: downloaded_agent
+      when: agent_installed.stat.exists == false
+      
+    - name: Verify agent binary
+      shell: file /tmp/sparkrun-local-agent
+      register: agent_file_type
+      changed_when: false
+      
+    - name: Install agent binary
+      copy:
+        src: /tmp/sparkrun-local-agent
+        dest: /usr/local/bin/sparkrun-local-agent
+        owner: root
+        group: root
+        mode: '0755'
+        remote_src: yes
+      when: downloaded_agent.changed or agent_installed.stat.exists == false
+      
+    - name: Create systemd service
+      copy:
+        src: files/sparkrun-local-agent.service
+        dest: /etc/systemd/system/sparkrun-local-agent.service
+        owner: root
+        group: root
+        mode: '0644'
+        
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: yes
+        
+    - name: Enable agent service
+      systemd:
+        name: sparkrun-local-agent
+        enabled: yes
+        
+    - name: Start agent service
+      systemd:
+        name: sparkrun-local-agent
+        state: started
+        
+    - name: Wait for agent to be ready
+      uri:
+        url: "http://127.0.0.1:{{ agent_port }}/health"
+        status_code: 200
+        timeout: 30
+      register: health_check
+      until: health_check.status == 200
+      retries: 10
+      delay: 3
+      
+    - name: Verify agent is running
+      shell: systemctl status sparkrun-local-agent --no-pager
+      register: agent_status
+      changed_when: false
+      
+    - name: Display agent status
+      debug:
+        msg: "Agent installed and running on {{ inventory_hostname }}"

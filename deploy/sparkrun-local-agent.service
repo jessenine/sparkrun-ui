@@ -1,0 +1,44 @@
+[Unit]
+Description=SparkRun Local Process Monitoring Agent
+Documentation=https://github.com/mcampa/sparkrun-ui
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=app
+Group=app
+ExecStart=/usr/local/bin/sparkrun-local-agent
+Restart=always
+RestartSec=5
+
+# Security hardening - critical for production
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+ReadWritePaths=/var/log
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+
+# Resource limits
+MemoryLimit=64M
+CPUQuota=10%
+TasksMax=50
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sparkrun-local-agent
+Environment=SPARKRUN_AGENT_PORT=8081
+Environment=SPARKRUN_AGENT_HOST=127.0.0.1
+Environment=SPARKRUN_AGENT_INTERVAL_MS=2000
+Environment=SPARKRUN_AGENT_MAX_PROCESSES=5
+
+[Install]
+WantedBy=multi-user.target

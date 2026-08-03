@@ -3,6 +3,7 @@ import { z } from "zod";
 import { streamSparkrunNdjson, runSparkrunJson, runSparkrunText } from "@/lib/sparkrun";
 import { normalizeProcessList } from "./processes";
 import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
+import { queryAgentProcesses } from "@/lib/rpc/agent/client";
 
 // Process entry interface (duplicate of ProcessEntry in processes.ts to avoid circular deps)
 interface ProcessEntry {
@@ -108,21 +109,21 @@ export const stream = os
         intervalSec: z.number().int().min(1).max(30).default(2),
       })
       .optional(),
-  )
-  .output(eventIterator(TickSchema))
-  .handler(async function* ({ input, signal }) {
-    const args = ["cluster", "monitor", "--json", "--interval", String(input?.intervalSec ?? 2)];
-    if (input?.cluster) args.push("--cluster", input.cluster);
-    else if (input?.hosts?.length) args.push("--hosts", input.hosts.join(","));
-    console.log("[monitor.stream] Running command:", args.join(" "));
-    for await (const obj of streamSparkrunNdjson<unknown>(args, { signal }) as AsyncIterable<unknown>) {
-      if (signal?.aborted) break;
-      console.log("[monitor.stream] Raw obj:", JSON.stringify(obj));
-      const normalized = normalizeMonitorOutput(obj);
-      console.log("[monitor.stream] Normalized:", JSON.stringify(normalized));
-      yield normalized;
-    }
-  });
+    )
+    .output(eventIterator(TickSchema))
+    .handler(async function* ({ input, signal }) {
+      const args = ["cluster", "monitor", "--json", "--interval", String(input?.intervalSec ?? 2)];
+      if (input?.cluster) args.push("--cluster", input.cluster);
+      else if (input?.hosts?.length) args.push("--hosts", input.hosts.join(","));
+      console.log("[monitor.stream] Running command:", args.join(" "));
+      for await (const obj of streamSparkrunNdjson<unknown>(args, { signal }) as AsyncIterable<unknown>) {
+        if (signal?.aborted) break;
+        console.log("[monitor.stream] Raw obj:", JSON.stringify(obj));
+        const normalized = normalizeMonitorOutput(obj);
+        console.log("[monitor.stream] Normalized:", JSON.stringify(normalized));
+        yield normalized;
+      }
+    });
 
 export const processes = os
   .input(
@@ -155,50 +156,21 @@ export const processes = os
     );
     const targetHosts = input?.hosts || statusResult.hosts || [];
 
-    // Collect process data from the monitoring stream
-    // We stream for a short duration then stop to get a snapshot
+    // Collect process data from each host's local agent
+    // This replaces the vulnerable SSH-based collection
     const allProcesses: ProcessEntry[] = [];
-    const abortController = new AbortController();
-    const signalProxy = { aborted: false, onabort: null as any, removeEventListener: null as any, addEventListener: null as any } as AbortSignal;
     
-    // Override signal to prevent premature abort
-    const proxySignal = { ...signal, aborted: false } as AbortSignal;
-    
-    try {
-      // Stream for 1 interval to get process data
-      const streamArgs = ["cluster", "monitor", "--json", "--interval", "1", "--simple"];
-      if (input?.cluster) streamArgs.push("--cluster", input.cluster);
-      else if (input?.hosts?.length) streamArgs.push("--hosts", input.hosts.join(","));
-      
-      let processed = false;
-      for await (const obj of streamSparkrunNdjson<unknown>(streamArgs, { signal: proxySignal }) as AsyncIterable<unknown>) {
-        if (signal?.aborted) break;
-        
-        const normalized = normalizeMonitorOutput(obj);
-        
-        // Extract processes from each host in the sample
-        for (const [host, hostData] of Object.entries(normalized.hosts)) {
-          if (hostData.processes && Array.isArray(hostData.processes)) {
-            for (const proc of hostData.processes) {
-              allProcesses.push({
-                user: proc.user,
-                pid: proc.pid,
-                cpu: proc.cpu,
-                mem: proc.mem,
-                command: proc.command,
-              });
-            }
-          }
-        }
-        processed = true;
-        break; // Get first sample only
+    for (const host of targetHosts) {
+      try {
+        // Each cluster member runs a local agent on port 8081
+        // Query the agent for process data
+        const agentProcesses = await queryAgentProcesses(host, 10);
+        allProcesses.push(...agentProcesses);
+        console.log(`[monitor.processes] Retrieved ${agentProcesses.length} processes from ${host}`);
+      } catch (error: any) {
+        console.error(`[monitor.processes] Error querying agent on ${host}:`, error?.message || error);
+        // Continue with other hosts even if one fails
       }
-      
-      if (!processed) {
-        console.warn("[monitor.processes] No process data received from monitoring stream");
-      }
-    } catch (err: any) {
-      console.error("[monitor.processes] Error streaming process data:", err?.message || err);
     }
 
     // Sort by CPU descending and return top 5

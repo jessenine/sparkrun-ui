@@ -1,0 +1,31 @@
+[package]
+name = "sparkrun-local-agent"
+version = "0.2.0"
+edition = "2021"
+description = "Secure local process monitoring agent for SparkRun cluster"
+license = "Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+tokio = { version = "1.37", features = ["full"] }
+axum = { version = "0.7", features = ["json"] }
+tower = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sysinfo = "0.29"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4.4", features = ["derive"] }
+uuid = { version = "1.6", features = ["v4"] }
+http-body-util = "0.1"
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.9"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
