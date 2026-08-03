@@ -183,7 +183,7 @@ export function DashboardLive({
           return;
         }
         
-        const tick = streamItem.value;
+        const tick = streamItem.value as any;  // Type assertion for stream data
         
         // Update process history for each host from the monitoring data
         setProcessHistory((prev) => {
