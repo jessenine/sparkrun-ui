@@ -1,6 +1,6 @@
 import { os, eventIterator } from "@orpc/server";
 import { z } from "zod";
-import { streamSparkrunNdjson } from "@/lib/sparkrun";
+import { streamSparkrunNdjson, runSparkrunJson, runSparkrunText } from "@/lib/sparkrun";
 import { normalizeProcessList } from "./processes";
 import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
 
@@ -120,55 +120,52 @@ export const processes = os
     })),
   }))
   .handler(async function ({ input, signal }) {
-    // Use cached monitor metrics instead of running ps aux
-    // This provides workload/process info without needing direct host access
+    // Run ps aux on each target host and collect results
     try {
-      await collectMetrics();
-      const cachedMetrics = getMonitorMetrics();
-      
-      if (!cachedMetrics || cachedMetrics.length === 0) {
-        return {
-          timestamp: Date.now(),
-          processes: [],
-        };
-      }
-      
-      // Take the most recent metrics snapshot
-      const latest = cachedMetrics[cachedMetrics.length - 1];
-      const hosts = latest?.hosts || [];
-      
-      // Transform workloads into process entries
-      const processes: ProcessEntry[] = [];
-      
-      for (const h of hosts) {
-        const hostIp = h.host || "unknown";
-        
-        if (input?.hosts && !input.hosts.includes(hostIp)) {
-          continue;
-        }
-        
-        for (const w of h.workloads || []) {
-          for (const c of w.containers || []) {
-            processes.push({
-              user: w.recipe || "unknown",
-              pid: 0, // No PID available from sparkrun - use 0 as placeholder
-              cpu: 0, // No CPU % available from sparkrun - use 0 as placeholder
-              mem: 0, // No MEM % available from sparkrun - use 0 as placeholder
-              command: `${c.name} (${hostIp})`,
-            });
+      const targetArgs = [];
+      if (input?.cluster) targetArgs.push("--cluster", input.cluster);
+      else if (input?.hosts?.length) targetArgs.push("--hosts", input.hosts.join(","));
+
+      // Get list of target hosts first
+      const statusResult = await runSparkrunJson<{ hosts: string[] }>(
+        ["cluster", "status", "--json", ...targetArgs],
+        { signal },
+      );
+      const targetHosts = input?.hosts || statusResult.hosts || [];
+
+      // Collect ps aux output from each host
+      const allProcesses: ProcessEntry[] = [];
+
+      for (const host of targetHosts) {
+        if (signal?.aborted) break;
+
+        try {
+          // Run ps aux on the remote host via sparkrun host exec
+          const result = await runSparkrunText(
+            ["host", "exec", host, "--", "ps", "aux"],
+            { signal, timeoutMs: 10000 }, // 10s timeout per host
+          );
+
+          if (result.code === 0) {
+            const normalized = normalizeProcessList(result.stdout);
+            allProcesses.push(...normalized.processes);
+          } else {
+            console.warn(`[monitor.processes] ps aux failed on ${host}: ${result.stderr}`);
           }
+        } catch (err) {
+          console.warn(`[monitor.processes] Error running ps aux on ${host}:`, err);
         }
       }
-      
-      // Sort by command name for consistent ordering
-      processes.sort((a, b) => a.command.localeCompare(b.command));
-      
+
+      // Sort by CPU descending and return top 5
+      allProcesses.sort((a, b) => b.cpu - a.cpu);
+
       return {
         timestamp: Date.now(),
-        processes: processes.slice(0, 5), // Top 5 processes
+        processes: allProcesses.slice(0, 5),
       };
     } catch (err) {
-      console.error("[monitor.processes] Error fetching cached metrics:", err);
+      console.error("[monitor.processes] Error fetching process data:", err);
       return {
         timestamp: Date.now(),
         processes: [],

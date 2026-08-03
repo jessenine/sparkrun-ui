@@ -16,6 +16,7 @@ tasks:
     deliverables:
       - Decision document in `specs/tech-architecture/`
       - Any necessary backend extensions
+    status: passing
     estimated_hours: 2
 
   - title: Build ProcessList component
@@ -24,15 +25,30 @@ tasks:
       - `app/components/dashboard/ProcessList.tsx`
       - Storybook story for the component
       - Unit tests
+    status: passing
     estimated_hours: 4
 
-  - title: Integrate process list into DashboardLive
-    description: Add process list to each host's metrics card in the dashboard
+  - title: Update ProcessList component with missing features
+    description: Add sort toggle (CPU/memory) and modal for full process details
     deliverables:
-      - Update `DashboardLive.tsx` to fetch and display process data
-      - Add toggle to switch between CPU/memory sorting
-      - Add modal for full process details
+      - Add sort state and toggle UI to ProcessList.tsx
+      - Add modal component for process details (use Dialog from @/app/components/ui/Dialog)
+      - Implement modal content with full ps aux output for selected process
+      - Update component unit tests
+    risk: P1
+    status: passing
+    verify: pnpm typecheck
     estimated_hours: 3
+
+  - title: Fix process data source
+    description: Update RPC endpoint to fetch actual `ps aux` output instead of cached monitor metrics
+    deliverables:
+      - Update `lib/rpc/procedures/monitor.ts` to run `ps aux` on target hosts via sparkrun host exec
+      - Update tests for the new data source
+    risk: P0
+    status: passing
+    verify: pnpm typecheck && pnpm lint
+    estimated_hours: 4
 
   - title: Performance optimization
     description: Optimize the process data fetching to avoid performance issues
@@ -40,6 +56,9 @@ tasks:
       - Document performance characteristics
       - Add caching or sampling if needed
       - Benchmark with realistic cluster sizes
+    risk: P2
+    status: passing
+    verify: pnpm typecheck && pnpm lint
     estimated_hours: 2
 
 total_estimated_hours: 14
