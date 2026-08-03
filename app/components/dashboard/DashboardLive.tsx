@@ -83,11 +83,20 @@ export function DashboardLive({
     const ac = new AbortController();
     let cancelled = false;
     let receivedData = false;
+    let firstDataReceived = false;
+    
     (async () => {
       try {
         const iter = await rpc.monitor.stream({ intervalSec: 2 }, { signal: ac.signal });
         for await (const next of iter) {
           if (cancelled) break;
+          
+          // Mark that we've received at least one data point
+          if (!firstDataReceived) {
+            firstDataReceived = true;
+            setMonitorLoaded(true);
+          }
+          
           // Update metric history per host
           setMetricHistory((prev) => {
             const nextHistory = { ...prev };
@@ -135,10 +144,6 @@ export function DashboardLive({
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
           console.error("[monitor.stream]", err);
         }
-      } finally {
-        // Set monitorLoaded to true whether we received data or not
-        // This allows the process useEffect to run even if monitor data is empty
-        setMonitorLoaded(true);
       }
     })();
     return () => {
@@ -157,6 +162,11 @@ export function DashboardLive({
         const hosts = Object.keys(metricHistory);
         if (hosts.length === 0) {
           console.log('[monitor.processes] No hosts available yet, waiting for monitor data');
+          // If we've loaded monitor data but still have no hosts, set processesLoaded
+          if (monitorLoaded) {
+            setProcessHistory({});
+            setProcessesLoaded(true);
+          }
           return;
         }
         
@@ -181,7 +191,7 @@ export function DashboardLive({
     })();
     // Run when metricHistory changes (any host added/removed)
     // This ensures the effect re-runs when new hosts are added to metricHistory
-  }, [metricHistory]);
+  }, [metricHistory, monitorLoaded]);
 
   useEffect(() => {
     const ac = new AbortController();
