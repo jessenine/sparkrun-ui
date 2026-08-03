@@ -1,11 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Use regular output instead of standalone to avoid ORPC framework's
-  // dynamic import issues in standalone builds. The ORPC framework is
-  // ESM-only and uses lazy procedures with dynamic import() which don't
-  // work properly in Next.js standalone builds.
-  // output: "standalone",
+  // Use standalone output for deployment packaging
+  output: "standalone",
   // Accept HMR / origin requests from any host (dev only).
   // Next uses micromatch where `*` doesn't cross dots, so an IPv4
   // address needs `*.*.*.*`. `**` covers everything else (hostnames,

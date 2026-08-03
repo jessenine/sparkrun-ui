@@ -3,6 +3,10 @@ import { z } from "zod";
 import { streamSparkrunNdjson, runSparkrunJson, runSparkrunText } from "@/lib/sparkrun";
 import { normalizeProcessList } from "./processes";
 import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 // Process entry interface (duplicate of ProcessEntry in processes.ts to avoid circular deps)
 interface ProcessEntry {
@@ -140,20 +144,23 @@ export const processes = os
         if (signal?.aborted) break;
 
         try {
-          // Run ps aux on the remote host via sparkrun host exec
-          const result = await runSparkrunText(
-            ["host", "exec", host, "--", "ps", "aux"],
-            { signal, timeoutMs: 10000 }, // 10s timeout per host
-          );
+          // Run ps aux on the remote host via SSH
+          // The sparkrun UI runs as the 'app' user which has SSH access configured
+          const command = `ssh -o BatchMode=yes -o ConnectTimeout=5 ${host} "ps aux"`;
+          const { stdout } = await execAsync(command, { 
+            signal,
+            timeout: 10000 // 10s timeout
+          });
 
-          if (result.code === 0) {
-            const normalized = normalizeProcessList(result.stdout);
+          if (stdout) {
+            const normalized = normalizeProcessList(stdout);
             allProcesses.push(...normalized.processes);
+            console.log(`[monitor.processes] Got ${normalized.processes.length} processes from ${host}`);
           } else {
-            console.warn(`[monitor.processes] ps aux failed on ${host}: ${result.stderr}`);
+            console.warn(`[monitor.processes] No stdout from ps aux on ${host}`);
           }
-        } catch (err) {
-          console.warn(`[monitor.processes] Error running ps aux on ${host}:`, err);
+        } catch (err: any) {
+          console.warn(`[monitor.processes] Error running ps aux on ${host}:`, err?.message || err);
         }
       }
 
