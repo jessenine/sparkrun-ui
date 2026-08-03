@@ -24,7 +24,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 log_info "Step 1: Creating project directory..."
-mkdir -p /home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent
+mkdir -p /home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent/src
 
 log_info "Step 2: Checking Rust installation..."
 if ! command -v cargo &> /dev/null; then
