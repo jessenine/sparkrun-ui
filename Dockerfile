@@ -1,4 +1,7 @@
 # syntax=docker/dockerfile:1.7
+# Build timestamp for cache busting: $(date +%s)
+
+ARG BUILD_DATE
 
 # -----------------------------------------------------------------------------
 # Builder: install JS deps + compile Next.js to a standalone server bundle.
@@ -10,9 +13,18 @@ WORKDIR /app
 RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
+RUN corepack enable
 RUN pnpm install --frozen-lockfile
 
+# Add a cache-busting step using the BUILD_DATE argument
+RUN echo "Build date: ${BUILD_DATE}" > /tmp/build_date
+# Create a timestamp file to force cache invalidation
+RUN echo "Build timestamp: $(date +%s)" > /tmp/build_timestamp_$$
+# Copy source files - this step will re-run if any source file changes
 COPY . .
+# Debug: print source file content
+RUN echo "=== DashboardLive.tsx content (first 150 lines) ===" && head -150 app/components/dashboard/DashboardLive.tsx
+RUN echo "Build timestamp: $(date +%s)" > /app/build_timestamp && cat /app/build_timestamp
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
@@ -78,11 +90,14 @@ ENV HOME=/home/app \
     SPARKRUN_BIN=sparkrun
 
 # Standalone Next.js server bundle + static + public.
-COPY --chown=app:app --from=builder /app/.next/standalone/.next ./.next
-COPY --chown=app:app --from=builder /app/.next/standalone/server.js ./server.js
-COPY --chown=app:app --from=builder /app/.next/standalone/node_modules ./node_modules
-COPY --chown=app:app --from=builder /app/.next/static ./.next/static
-COPY --chown=app:app --from=builder /app/public ./public
+# The builder runs `pnpm build` which creates `.next/` in the container.
+# We copy this to the runtime image.
+COPY --chown=app:app --from=builder /app/.next /home/app/app/.next
+COPY --chown=app:app --from=builder /app/public /home/app/app/public
+COPY --chown=app:app --from=builder /app/server.js /home/app/app/server.js
+COPY --chown=app:app --from=builder /app/node_modules /home/app/app/node_modules
+# COPY the timestamp file from builder to runtime
+COPY --from=builder /app/build_timestamp /app/build_timestamp
 
 # WORKDIR creates the directory as root; re-own so the `app` user can write
 # benchmark results and other runtime artifacts to the working directory.

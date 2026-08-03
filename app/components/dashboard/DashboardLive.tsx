@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { AlertTriangle, Rocket, List } from "lucide-react";
 import { rpc } from "@/lib/rpc/client";
@@ -41,13 +41,24 @@ export function DashboardLive({
   // Process history per host: hostIp -> [ProcessEntry]
   const [processHistory, setProcessHistory] = useState<Record<string, ProcessEntry[]>>({});
   
+  // Track if monitor data has been loaded at least once
+  const [monitorLoaded, setMonitorLoaded] = useState(false);
+  
+  // Track if we've attempted to load processes
+  const [processesLoaded, setProcessesLoaded] = useState(false);
+  
   const MAX_HISTORY = 15; // 15 data points at 2-3s intervals = ~30-45 seconds
+
+  // Use a ref to track the latest metricHistory for the process subscription
+  const metricHistoryRef = useRef(metricHistory);
+  metricHistoryRef.current = metricHistory;
 
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
     (async () => {
       try {
+        // cache bust: 2026-08-03T03:00:00Z
         const iter = await rpc.status.stream({ intervalMs: 3000 }, { signal: ac.signal });
         for await (const next of iter) {
           if (cancelled) break;
@@ -71,6 +82,7 @@ export function DashboardLive({
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
+    let receivedData = false;
     (async () => {
       try {
         const iter = await rpc.monitor.stream({ intervalSec: 2 }, { signal: ac.signal });
@@ -81,7 +93,16 @@ export function DashboardLive({
             const nextHistory = { ...prev };
             
             // next is a Tick with hosts Record<string, HostMetrics>
-            const hosts = (next as { hosts: Record<string, Record<string, string | undefined>> }).hosts;
+            const hosts = next && typeof next === 'object' && 'hosts' in next
+              ? (next as { hosts: Record<string, Record<string, string | undefined>> }).hosts
+              : undefined;
+            
+            if (!hosts || Object.keys(hosts).length === 0) {
+              console.warn('[monitor.stream] No hosts data in tick:', next);
+              return nextHistory;
+            }
+            
+            receivedData = true;
             
             for (const [hostIp, metrics] of Object.entries(hosts)) {
               if (!nextHistory[hostIp]) {
@@ -114,6 +135,10 @@ export function DashboardLive({
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
           console.error("[monitor.stream]", err);
         }
+      } finally {
+        // Set monitorLoaded to true whether we received data or not
+        // This allows the process useEffect to run even if monitor data is empty
+        setMonitorLoaded(true);
       }
     })();
     return () => {
@@ -128,18 +153,26 @@ export function DashboardLive({
     let cancelled = false;
     (async () => {
       try {
-        const hosts = Object.keys(metricHistory);
-        if (hosts.length === 0) return;
+        // Get hosts from ref to access the latest value without dependency
+        const hosts = Object.keys(metricHistoryRef.current);
+        if (hosts.length === 0) {
+          console.log('[monitor.processes] No hosts available yet, waiting for monitor data');
+          return;
+        }
         
+        console.log('[monitor.processes] Fetching process data for hosts:', hosts);
         const result = await rpc.monitor.processes({ hosts }, { signal: ac.signal });
         if (cancelled) return;
         
         // Update process history for each host
         setProcessHistory((prev) => {
           const nextHistory = { ...prev };
-          nextHistory["127.0.0.1"] = result.processes;
+          for (const host of hosts) {
+            nextHistory[host] = result.processes;
+          }
           return nextHistory;
         });
+        setProcessesLoaded(true);
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
           console.error("[monitor.processes]", err);
@@ -150,7 +183,7 @@ export function DashboardLive({
       cancelled = true;
       ac.abort();
     };
-  }, [Object.keys(metricHistory).length]);
+  }, [monitorLoaded]); // Run when monitor data is loaded
 
   useEffect(() => {
     const ac = new AbortController();
@@ -191,75 +224,86 @@ export function DashboardLive({
       <AggregateStats />
 
       {/* Individual host metrics with sparklines */}
-      {metricHistory && Object.keys(metricHistory).length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Host metrics
-            <span className="ml-2 text-xs text-zinc-500">
-              ({Object.keys(metricHistory).length} hosts)
-            </span>
-          </h2>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {Object.entries(metricHistory).map(([hostIp, history]) => (
-              <Card key={hostIp}>
-                <CardBody className="p-4">
-                  <div className="mb-3 flex items-baseline justify-between">
-                    <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      {hostIp}
+      <div className="flex flex-col gap-3">
+        {Object.keys(metricHistory).length > 0 ? (
+          <div>
+            <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Host metrics
+              <span className="ml-2 text-xs text-zinc-500">
+                ({Object.keys(metricHistory).length} hosts)
+              </span>
+            </h2>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {Object.entries(metricHistory).map(([hostIp, history]) => (
+                <Card key={hostIp}>
+                  <CardBody className="p-4">
+                    <div className="mb-3 flex items-baseline justify-between">
+                      <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        {hostIp}
+                      </div>
+                      <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" title="online" />
                     </div>
-                    <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" title="online" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <SparklineGraph
-                      title="CPU"
-                      data={history.cpu_usage_pct || []}
-                      color="sky"
-                      unit="%"
-                    />
-                    <SparklineGraph
-                      title="GPU"
-                      data={history.gpu_util_pct || []}
-                      color="purple"
-                      unit="%"
-                    />
-                    <SparklineGraph
-                      title="Mem"
-                      data={history.mem_used_pct || []}
-                      color="green"
-                      unit="%"
-                    />
-                    <SparklineGraph
-                      title="Power"
-                      data={history.gpu_power_w || []}
-                      color="amber"
-                      unit="W"
-                    />
-                    <SparklineGraph
-                      title="Temp"
-                      data={history.cpu_temp_c || []}
-                      color="red"
-                      unit="°C"
-                    />
-                    <SparklineGraph
-                      title="GPU Temp"
-                      data={history.gpu_temp_c || []}
-                      color="red"
-                      unit="°C"
-                    />
-                  </div>
-                  {/* Process list - show top 5 processes */}
-                  <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                    <ProcessList
-                      title="Top Processes"
-                      processes={processHistory[hostIp] || []}
-                    />
-                  </div>
-                </CardBody>
-              </Card>
-            ))}
+                    <div className="grid grid-cols-2 gap-3">
+                      <SparklineGraph
+                        title="CPU"
+                        data={history.cpu_usage_pct || []}
+                        color="sky"
+                        unit="%"
+                      />
+                      <SparklineGraph
+                        title="GPU"
+                        data={history.gpu_util_pct || []}
+                        color="purple"
+                        unit="%"
+                      />
+                      <SparklineGraph
+                        title="Mem"
+                        data={history.mem_used_pct || []}
+                        color="green"
+                        unit="%"
+                      />
+                      <SparklineGraph
+                        title="Power"
+                        data={history.gpu_power_w || []}
+                        color="amber"
+                        unit="W"
+                      />
+                      <SparklineGraph
+                        title="Temp"
+                        data={history.cpu_temp_c || []}
+                        color="red"
+                        unit="°C"
+                      />
+                      <SparklineGraph
+                        title="GPU Temp"
+                        data={history.gpu_temp_c || []}
+                        color="red"
+                        unit="°C"
+                      />
+                    </div>
+                    {/* Process list - show top 5 processes */}
+                    <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                      <ProcessList
+                        title="Top Processes"
+                        processes={processHistory[hostIp] || []}
+                      />
+                    </div>
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          !monitorLoaded && (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-zinc-500 border-t-transparent" />
+              </div>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">Loading metrics...</p>
+            </div>
+          )
+        )}
+      </div>
 
       {Object.keys(status.errors).length > 0 && (
         <Card className="border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">

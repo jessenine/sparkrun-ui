@@ -13,7 +13,7 @@
 # `ports:` block).
 services:
   sparkrun-ui:
-    image: ghcr.io/mcampa/sparkrun-ui:latest
+    image: sparkrun-ui:local
     # `:latest` is mutable — always re-check the registry so `docker compose up`
     # picks up new builds instead of reusing a stale local cache.
     pull_policy: always
