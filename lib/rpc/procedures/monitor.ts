@@ -138,12 +138,9 @@ export const processes = os
       // The process list feature is intentionally disabled for security reasons.
       console.warn("[monitor.processes] Process data not available - sparkrun does not expose host process listing");
 
-      // Sort by CPU descending and return top 5
-      allProcesses.sort((a, b) => b.cpu - a.cpu);
-
       return {
         timestamp: Date.now(),
-        processes: allProcesses.slice(0, 5),
+        processes: [],
       };
     } catch (err) {
       console.error("[monitor.processes] Error fetching process data:", err);
