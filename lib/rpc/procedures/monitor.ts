@@ -3,10 +3,6 @@ import { z } from "zod";
 import { streamSparkrunNdjson, runSparkrunJson, runSparkrunText } from "@/lib/sparkrun";
 import { normalizeProcessList } from "./processes";
 import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
-import { exec } from "child_process";
-import { promisify } from "util";
-
-const execAsync = promisify(exec);
 
 // Process entry interface (duplicate of ProcessEntry in processes.ts to avoid circular deps)
 interface ProcessEntry {
@@ -137,32 +133,10 @@ export const processes = os
       );
       const targetHosts = input?.hosts || statusResult.hosts || [];
 
-      // Collect ps aux output from each host
-      const allProcesses: ProcessEntry[] = [];
-
-      for (const host of targetHosts) {
-        if (signal?.aborted) break;
-
-        try {
-          // Run ps aux on the remote host via SSH
-          // The sparkrun UI runs as the 'app' user which has SSH access configured
-          const command = `ssh -o BatchMode=yes -o ConnectTimeout=5 ${host} "ps aux"`;
-          const { stdout } = await execAsync(command, { 
-            signal,
-            timeout: 10000 // 10s timeout
-          });
-
-          if (stdout) {
-            const normalized = normalizeProcessList(stdout);
-            allProcesses.push(...normalized.processes);
-            console.log(`[monitor.processes] Got ${normalized.processes.length} processes from ${host}`);
-          } else {
-            console.warn(`[monitor.processes] No stdout from ps aux on ${host}`);
-          }
-        } catch (err: any) {
-          console.warn(`[monitor.processes] Error running ps aux on ${host}:`, err?.message || err);
-        }
-      }
+      // Process data is not available through sparkrun's public API.
+      // sparkrun does not provide a safe way to execute arbitrary commands on hosts.
+      // The process list feature is intentionally disabled for security reasons.
+      console.warn("[monitor.processes] Process data not available - sparkrun does not expose host process listing");
 
       // Sort by CPU descending and return top 5
       allProcesses.sort((a, b) => b.cpu - a.cpu);
