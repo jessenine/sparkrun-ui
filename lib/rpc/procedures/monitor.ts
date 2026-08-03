@@ -32,13 +32,16 @@ const HostMetricsSchema = z
     gpu_power_limit_w: z.string().optional(),
     sparkrun_jobs: z.string().optional(),
     sparkrun_job_names: z.string().optional(),
-    processes: z.array(z.object({
-      user: z.string(),
-      pid: z.number(),
-      cpu: z.number(),
-      mem: z.number(),
-      command: z.string(),
-    })).optional(),  // Top 5 processes by CPU
+    processes: z.union([
+      z.array(z.object({
+        user: z.string(),
+        pid: z.number(),
+        cpu: z.number(),
+        mem: z.number(),
+        command: z.string(),
+      })),  // Top 5 processes by CPU (already parsed)
+      z.string(),  // Raw JSON string (needs parsing)
+    ]).optional(),
   })
   .loose();
 
