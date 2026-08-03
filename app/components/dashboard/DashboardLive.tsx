@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Rocket, List } from "lucide-react";
+import { rpc } from "@/lib/rpc/client";
 import type { ClusterStatus, Job } from "@/lib/schemas";
 import type { RunningRecipeDisplay } from "@/lib/runningRecipes";
 import { Card, CardBody } from "@/app/components/ui/Card";
@@ -9,9 +10,6 @@ import { Badge } from "@/app/components/ui/Badge";
 import { Button } from "@/app/components/ui/Button";
 import { WorkloadCard } from "./WorkloadCard";
 import { AggregateStats } from "./AggregateStats";
-import { SparklineGraph } from "./SparklineGraph";
-import { ProcessList } from "./ProcessList";
-import type { ProcessEntry } from "./ProcessList";
 
 function formatHostError(value: unknown): string {
   if (typeof value === "string") return value;
@@ -31,213 +29,49 @@ export function DashboardLive({
   const [status, setStatus] = useState<ClusterStatus>(initial);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [connected, setConnected] = useState(true);
-  
-  // Metrics history per host: hostIp -> metricName -> [values]
-  const [metricHistory, setMetricHistory] = useState<Record<string, Record<string, number[]>>>(
-    {}
-  );
-  
-  // Process history per host: hostIp -> [ProcessEntry]
-  const [processHistory, setProcessHistory] = useState<Record<string, ProcessEntry[]>>({});
-  
-  const MAX_HISTORY = 15; // 15 data points at 2-3s intervals = ~30-45 seconds
 
-  // Poll monitor API for metrics (replaces ORPC stream)
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
-    
-    const pollMonitor = async () => {
-      // Check cancelled flag at start to avoid unnecessary work
-      if (cancelled) return;
-      
+    (async () => {
       try {
-        const response = await fetch("/api/monitor", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ intervalSec: 2 }),
-          signal: ac.signal,
-        });
-        
-        if (cancelled) return;
-        
-        if (!response.ok) {
-          console.error("Monitor API error:", response.statusText);
-          setConnected(false);
-          return;
+        const iter = await rpc.status.stream({ intervalMs: 3000 }, { signal: ac.signal });
+        for await (const next of iter) {
+          if (cancelled) break;
+          setStatus(next);
+          setConnected(true);
         }
-        
-        const data = await response.json();
-        
-        // Validate data.results is an array before processing
-        if (!Array.isArray(data.results) || data.results.length === 0) {
-          setConnected(false);
-          return;
-        }
-        
-        // Use the latest result from the batch
-        const latest = data.results[data.results.length - 1];
-        setStatus(latest);
-        
-        // Update metric history
-        setMetricHistory((prev) => {
-          const nextHistory = { ...prev };
-          const hosts = (latest as { hosts: Record<string, any> }).hosts;
-          
-          if (!hosts || typeof hosts !== "object") {
-            return nextHistory;
-          }
-          
-          for (const [hostIp, metrics] of Object.entries(hosts)) {
-            if (!nextHistory[hostIp]) {
-              nextHistory[hostIp] = {};
-            }
-            
-            const hostHistory = nextHistory[hostIp];
-            for (const [metricName, value] of Object.entries(metrics)) {
-              if (value === undefined) continue;
-              // Convert to string first, then parse as number
-              const strVal = String(value);
-              const numVal = parseFloat(strVal);
-              // Validate that parsed value is finite and valid
-              if (!Number.isFinite(numVal) || isNaN(numVal)) continue;
-              
-              const history = hostHistory[metricName] || [];
-              const newHistory = [...history, numVal];
-              
-              if (newHistory.length > MAX_HISTORY) {
-                newHistory.shift();
-              }
-              
-              hostHistory[metricName] = newHistory;
-            }
-          }
-          
-          return nextHistory;
-        });
-        setConnected(true);
       } catch (err) {
-        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[pollMonitor]", err);
-          setConnected(false);
+        if (!cancelled) setConnected(false);
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          console.error("[status.stream]", err);
         }
       }
-    };
-    
-    pollMonitor();
-    const interval = setInterval(pollMonitor, 2000);
-    
+    })();
     return () => {
       cancelled = true;
       ac.abort();
-      clearInterval(interval);
     };
   }, []);
 
-  // Poll processes API (replaces ORPC processes stream)
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
-    
-    const pollProcesses = async () => {
-      // Check cancelled flag at start to avoid unnecessary work
-      if (cancelled) return;
-      
-      // Always poll processes - even if metricHistory is empty, we might get data
+    (async () => {
       try {
-        const response = await fetch("/api/processes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
-          signal: ac.signal,
-        });
-        
-        if (cancelled) return;
-        
-        if (!response.ok) {
-          console.error("Processes API error:", response.statusText);
-          return;
-        }
-        
-        const data = await response.json();
-        
-        // Validate data.processes is an array before processing
-        if (!Array.isArray(data.processes)) {
-          return;
-        }
-        
-        // Update process history for each host
-        setProcessHistory((prev) => {
-          const nextHistory = { ...prev };
-          for (const item of data.processes) {
-            // Validate item structure before accessing properties
-            if (!item || typeof item !== "object") continue;
-            const host = item.host;
-            const entries = item.entries;
-            if (typeof host === "string" && Array.isArray(entries)) {
-              nextHistory[host] = entries;
-            }
-          }
-          return nextHistory;
-        });
-      } catch (err) {
-        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[pollProcesses]", err);
-        }
-      }
-    };
-    
-    pollProcesses();
-    const interval = setInterval(pollProcesses, 3000);
-    
-    return () => {
-      cancelled = true;
-      ac.abort();
-      clearInterval(interval);
-    };
-  }, [Object.keys(metricHistory).length]);
-
-  // Poll jobs endpoint (replaces ORPC status.jobs)
-  useEffect(() => {
-    const ac = new AbortController();
-    let cancelled = false;
-    
-    const pollJobs = async () => {
-      // Check cancelled flag at start to avoid unnecessary work
-      if (cancelled) return;
-      
-      try {
-        const response = await fetch("/api/jobs", {
-          method: "POST",
-          signal: ac.signal,
-        });
-        
-        if (cancelled) return;
-        
-        if (!response.ok) {
-          console.error("Jobs API error:", response.statusText);
-          return;
-        }
-        
-        const data = await response.json();
+        const fetchedJobs = await rpc.status.jobs({ signal: ac.signal });
         if (!cancelled) {
-          // Validate data.jobs is an array before setting
-          setJobs(Array.isArray(data.jobs) ? data.jobs : []);
+          setJobs(fetchedJobs.jobs);
         }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[pollJobs]", err);
+          console.error("[status.jobs]", err);
         }
       }
-    };
-    
-    pollJobs();
-    const interval = setInterval(pollJobs, 5000);
-    
+    })();
     return () => {
       cancelled = true;
       ac.abort();
-      clearInterval(interval);
     };
   }, []);
 
@@ -258,88 +92,7 @@ export function DashboardLive({
 
       <AggregateStats />
 
-      {/* Individual host metrics with sparklines */}
-      {metricHistory && Object.keys(metricHistory).length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Host metrics
-            <span className="ml-2 text-xs text-zinc-500">
-              ({Object.keys(metricHistory).length} hosts)
-            </span>
-          </h2>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {Object.entries(metricHistory).map(([hostIp, history]) => {
-              // Safely access history properties, defaulting to empty arrays
-              const cpuData = Array.isArray(history.cpu_usage_pct) ? history.cpu_usage_pct : [];
-              const gpuData = Array.isArray(history.gpu_util_pct) ? history.gpu_util_pct : [];
-              const memData = Array.isArray(history.mem_used_pct) ? history.mem_used_pct : [];
-              const powerData = Array.isArray(history.gpu_power_w) ? history.gpu_power_w : [];
-              const cpuTempData = Array.isArray(history.cpu_temp_c) ? history.cpu_temp_c : [];
-              const gpuTempData = Array.isArray(history.gpu_temp_c) ? history.gpu_temp_c : [];
-              
-              return (
-                <Card key={hostIp}>
-                  <CardBody className="p-4">
-                    <div className="mb-3 flex items-baseline justify-between">
-                      <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                        {hostIp}
-                      </div>
-                      <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" title="online" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <SparklineGraph
-                        title="CPU"
-                        data={cpuData}
-                        color="sky"
-                        unit="%"
-                      />
-                      <SparklineGraph
-                        title="GPU"
-                        data={gpuData}
-                        color="purple"
-                        unit="%"
-                      />
-                      <SparklineGraph
-                        title="Mem"
-                        data={memData}
-                        color="green"
-                        unit="%"
-                      />
-                      <SparklineGraph
-                        title="Power"
-                        data={powerData}
-                        color="amber"
-                        unit="W"
-                      />
-                      <SparklineGraph
-                        title="Temp"
-                        data={cpuTempData}
-                        color="red"
-                        unit="°C"
-                      />
-                      <SparklineGraph
-                        title="GPU Temp"
-                        data={gpuTempData}
-                        color="red"
-                        unit="°C"
-                      />
-                    </div>
-                    {/* Process list - show top 5 processes */}
-                    <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                      <ProcessList
-                        title="Top Processes"
-                        processes={processHistory[hostIp] || []}
-                      />
-                    </div>
-                  </CardBody>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {Object.keys(status.errors || {}).length > 0 && (
+      {Object.keys(status.errors).length > 0 && (
         <Card className="border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
           <CardBody className="flex gap-3">
             <AlertTriangle
