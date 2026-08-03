@@ -69,6 +69,31 @@ if [[ -f "$BIN_DIR/sparkrun-local-agent" ]]; then
     cp "$BIN_DIR/sparkrun-local-agent" "$BIN_DIR/sparkrun-local-agent.bak"
 fi
 
+# Check if cargo is available
+if ! command -v cargo &> /dev/null; then
+    log_error "Cargo/Rust is required but not available. Please install Rust first."
+    log_error "Run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+    exit 1
+fi
+
+# Check if agent source exists
+if [[ ! -d "/home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent" ]]; then
+    log_error "Agent source not found at /home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent"
+    log_error "Please clone the sparkrun-ui repository first."
+    exit 1
+fi
+
+# Build the agent from source
+log_info "Building agent from source..."
+cd /home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent
+cargo build --release
+
+# Copy binary to /usr/local/bin
+log_info "Installing agent binary to $BIN_DIR..."
+sudo cp target/release/sparkrun-local-agent "$BIN_DIR/sparkrun-local-agent"
+sudo chmod 755 "$BIN_DIR/sparkrun-local-agent"
+log_info "Binary installed successfully"
+
 # Create systemd service
 log_info "Creating systemd service..."
 cat > "$SERVICE_DIR/sparkrun-local-agent.service" << 'SERVICE_EOF'
