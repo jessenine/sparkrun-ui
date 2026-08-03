@@ -9,8 +9,8 @@ tasks:
       - `lib/rpc/router.ts` - Register new route
       - Tests for the new endpoint
     status: passing
-    estimated_hours: 3
     completed: true
+    estimated_hours: 3
 
   - title: Extend sparkrun cluster monitor output (if needed)
     description: Determine if sparkrun can provide per-process data, or if we need to run `ps aux` directly
@@ -18,8 +18,8 @@ tasks:
       - Decision document in `specs/tech-architecture/`
       - Any necessary backend extensions
     status: passing
-    estimated_hours: 2
     completed: true
+    estimated_hours: 2
 
   - title: Build ProcessList component
     description: Create a new React component to display top 5 processes in a dashboard card
@@ -28,17 +28,31 @@ tasks:
       - Storybook story for the component
       - Unit tests
     status: passing
+    completed: true
     estimated_hours: 4
+
+  - title: Update ProcessList component with missing features
+    description: Add sort toggle (CPU/memory) and modal for full process details
+    deliverables:
+      - Add sort state and toggle UI to ProcessList.tsx
+      - Add modal component for process details (use Dialog from @/app/components/ui/Dialog)
+      - Implement modal content with full ps aux output for selected process
+      - Update component unit tests
+    risk: P1
+    status: passing
+    verify: pnpm typecheck
+    estimated_hours: 3
     completed: true
 
-  - title: Integrate process list into DashboardLive
-    description: Add process list to each host's metrics card in the dashboard
+  - title: Fix process data source
+    description: Update RPC endpoint to fetch actual `ps aux` output instead of cached monitor metrics
     deliverables:
-      - Update `DashboardLive.tsx` to fetch and display process data
-      - Add toggle to switch between CPU/memory sorting
-      - Add modal for full process details
+      - Update `lib/rpc/procedures/monitor.ts` to run `ps aux` on target hosts via sparkrun host exec
+      - Update tests for the new data source
+    risk: P0
     status: passing
-    estimated_hours: 3
+    verify: pnpm typecheck && pnpm lint
+    estimated_hours: 4
     completed: true
 
   - title: Performance optimization
@@ -47,7 +61,9 @@ tasks:
       - Document performance characteristics
       - Add caching or sampling if needed
       - Benchmark with realistic cluster sizes
+    risk: P2
     status: passing
+    verify: pnpm typecheck && pnpm lint
     estimated_hours: 2
     completed: true
 

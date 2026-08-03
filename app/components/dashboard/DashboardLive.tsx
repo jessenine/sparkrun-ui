@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { AlertTriangle, Rocket, List } from "lucide-react";
 import { rpc } from "@/lib/rpc/client";
@@ -10,6 +10,9 @@ import { Badge } from "@/app/components/ui/Badge";
 import { Button } from "@/app/components/ui/Button";
 import { WorkloadCard } from "./WorkloadCard";
 import { AggregateStats } from "./AggregateStats";
+import { SparklineGraph } from "./SparklineGraph";
+import { ProcessList } from "./ProcessList";
+import type { ProcessEntry } from "./ProcessList";
 
 function formatHostError(value: unknown): string {
   if (typeof value === "string") return value;
@@ -29,12 +32,33 @@ export function DashboardLive({
   const [status, setStatus] = useState<ClusterStatus>(initial);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [connected, setConnected] = useState(true);
+  
+  // Metrics history per host: hostIp -> metricName -> [values]
+  const [metricHistory, setMetricHistory] = useState<Record<string, Record<string, number[]>>>(
+    {}
+  );
+  
+  // Process history per host: hostIp -> [ProcessEntry]
+  const [processHistory, setProcessHistory] = useState<Record<string, ProcessEntry[]>>({});
+  
+  // Track if monitor data has been loaded at least once
+  const [monitorLoaded, setMonitorLoaded] = useState(false);
+  
+  // Track if we've attempted to load processes
+  const [processesLoaded, setProcessesLoaded] = useState(false);
+  
+  const MAX_HISTORY = 15; // 15 data points at 2-3s intervals = ~30-45 seconds
+
+  // Use a ref to track the latest metricHistory for the process subscription
+  const metricHistoryRef = useRef(metricHistory);
+  metricHistoryRef.current = metricHistory;
 
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
     (async () => {
       try {
+        // cache bust: 2026-08-03T03:00:00Z
         const iter = await rpc.status.stream({ intervalMs: 3000 }, { signal: ac.signal });
         for await (const next of iter) {
           if (cancelled) break;
@@ -53,6 +77,121 @@ export function DashboardLive({
       ac.abort();
     };
   }, []);
+
+  // Subscribe to monitor stream for per-host metrics
+  useEffect(() => {
+    const ac = new AbortController();
+    let cancelled = false;
+    let receivedData = false;
+    let firstDataReceived = false;
+    
+    (async () => {
+      try {
+        const iter = await rpc.monitor.stream({ intervalSec: 2 }, { signal: ac.signal });
+        for await (const next of iter) {
+          if (cancelled) break;
+          
+          // Mark that we've received at least one data point
+          if (!firstDataReceived) {
+            firstDataReceived = true;
+            setMonitorLoaded(true);
+          }
+          
+          // Update metric history per host
+          setMetricHistory((prev) => {
+            const nextHistory = { ...prev };
+            
+            // next is a Tick with hosts Record<string, HostMetrics>
+            const hosts = next && typeof next === 'object' && 'hosts' in next
+              ? (next as { hosts: Record<string, Record<string, string | undefined>> }).hosts
+              : undefined;
+            
+            if (!hosts || Object.keys(hosts).length === 0) {
+              console.warn('[monitor.stream] No hosts data in tick:', next);
+              return nextHistory;
+            }
+            
+            receivedData = true;
+            
+            for (const [hostIp, metrics] of Object.entries(hosts)) {
+              if (!nextHistory[hostIp]) {
+                nextHistory[hostIp] = {};
+              }
+              
+              // Update each metric history
+              const hostHistory = nextHistory[hostIp];
+              for (const [metricName, value] of Object.entries(metrics)) {
+                if (value === undefined) continue;
+                const numVal = parseFloat(value);
+                if (!Number.isFinite(numVal)) continue;
+                
+                const history = hostHistory[metricName] || [];
+                const newHistory = [...history, numVal];
+                
+                // Keep only last N values
+                if (newHistory.length > MAX_HISTORY) {
+                  newHistory.shift();
+                }
+                
+                hostHistory[metricName] = newHistory;
+              }
+            }
+            
+            return nextHistory;
+          });
+        }
+      } catch (err) {
+        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
+          console.error("[monitor.stream]", err);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, []);
+
+  // Subscribe to process metrics stream for per-host process data
+  useEffect(() => {
+    const ac = new AbortController();
+    let cancelled = false;
+    (async () => {
+      try {
+        // Get hosts from current metricHistory state
+        const hosts = Object.keys(metricHistory);
+        if (hosts.length === 0) {
+          console.log('[monitor.processes] No hosts available yet, waiting for monitor data');
+          // If we've loaded monitor data but still have no hosts, set processesLoaded
+          if (monitorLoaded) {
+            setProcessHistory({});
+            setProcessesLoaded(true);
+          }
+          return;
+        }
+        
+        console.log('[monitor.processes] Fetching process data for hosts:', hosts);
+        const result = await rpc.monitor.processes({ hosts }, { signal: ac.signal });
+        if (cancelled) return;
+        
+        // Update process history for each host
+        setProcessHistory((prev) => {
+          const nextHistory = { ...prev };
+          for (const host of hosts) {
+            nextHistory[host] = result.processes;
+          }
+          return nextHistory;
+        });
+        setProcessesLoaded(true);
+      } catch (err) {
+        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
+          console.error("[monitor.processes]", err);
+        }
+      }
+    })();
+    // Run when metricHistory changes (any host added/removed)
+    // This ensures the effect re-runs when new hosts are added to metricHistory
+  }, [metricHistory, monitorLoaded]);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -91,6 +230,88 @@ export function DashboardLive({
       </div>
 
       <AggregateStats />
+
+      {/* Individual host metrics with sparklines */}
+      <div className="flex flex-col gap-3">
+        {Object.keys(metricHistory).length > 0 ? (
+          <div>
+            <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+              Host metrics
+              <span className="ml-2 text-xs text-zinc-500">
+                ({Object.keys(metricHistory).length} hosts)
+              </span>
+            </h2>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {Object.entries(metricHistory).map(([hostIp, history]) => (
+                <Card key={hostIp}>
+                  <CardBody className="p-4">
+                    <div className="mb-3 flex items-baseline justify-between">
+                      <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        {hostIp}
+                      </div>
+                      <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" title="online" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <SparklineGraph
+                        title="CPU"
+                        data={history.cpu_usage_pct || []}
+                        color="sky"
+                        unit="%"
+                      />
+                      <SparklineGraph
+                        title="GPU"
+                        data={history.gpu_util_pct || []}
+                        color="purple"
+                        unit="%"
+                      />
+                      <SparklineGraph
+                        title="Mem"
+                        data={history.mem_used_pct || []}
+                        color="green"
+                        unit="%"
+                      />
+                      <SparklineGraph
+                        title="Power"
+                        data={history.gpu_power_w || []}
+                        color="amber"
+                        unit="W"
+                      />
+                      <SparklineGraph
+                        title="Temp"
+                        data={history.cpu_temp_c || []}
+                        color="red"
+                        unit="°C"
+                      />
+                      <SparklineGraph
+                        title="GPU Temp"
+                        data={history.gpu_temp_c || []}
+                        color="red"
+                        unit="°C"
+                      />
+                    </div>
+                    {/* Process list - show top 5 processes */}
+                    <div className="mt-4 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                      <ProcessList
+                        title="Top Processes"
+                        processes={processHistory[hostIp] || []}
+                      />
+                    </div>
+                  </CardBody>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ) : (
+          !monitorLoaded && (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-zinc-500 border-t-transparent" />
+              </div>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">Loading metrics...</p>
+            </div>
+          )
+        )}
+      </div>
 
       {Object.keys(status.errors).length > 0 && (
         <Card className="border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">

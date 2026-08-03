@@ -13,10 +13,9 @@
 # `ports:` block).
 services:
   sparkrun-ui:
-    image: sparkrun-ui:custom
-    # Use the locally built image instead of pulling from registry.
-    # This ensures our custom Dockerfile changes are used for API routes.
-    pull_policy: never
+    image: sparkrun-ui:local
+    # Use locally built image (do not pull from registry)
+    pull_policy: local
     container_name: sparkrun-ui
     restart: unless-stopped
 

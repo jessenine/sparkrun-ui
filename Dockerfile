@@ -10,8 +10,15 @@ WORKDIR /app
 RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
+RUN corepack enable
 RUN pnpm install --frozen-lockfile
 
+# Add a cache-busting step using BUILD_DATE
+ARG BUILD_DATE
+RUN echo "Build date: ${BUILD_DATE}" > /tmp/build_date
+# Create timestamp file BEFORE COPY to force cache invalidation
+RUN echo "Build timestamp: $(date +%s)" > /app/build_timestamp
+# Copy source files - this step will re-run if any source file changes (including timestamp)
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
