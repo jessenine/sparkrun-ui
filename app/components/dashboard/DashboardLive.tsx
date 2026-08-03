@@ -171,15 +171,33 @@ export function DashboardLive({
         }
         setProcessLoading(loadingState);
         
-        console.log('[monitor.processes] Fetching process data for hosts:', hosts);
-        const result = await rpc.monitor.processes({ hosts }, { signal: ac.signal });
+        // Use the monitoring stream to get process data
+        // The monitor.stream endpoint returns metrics with process data embedded
+        const iter = await rpc.monitor.stream({ hosts, intervalSec: 2 }, { signal: ac.signal });
         if (cancelled) return;
         
-        // Update process history for each host
+        // Get one sample from the stream
+        const streamItem = await iter.next();
+        if (streamItem.done || !streamItem.value) {
+          console.warn('[monitor.processes] No data from monitor stream');
+          return;
+        }
+        
+        const tick = streamItem.value;
+        
+        // Update process history for each host from the monitoring data
         setProcessHistory((prev) => {
           const nextHistory = { ...prev };
           for (const host of hosts) {
-            nextHistory[host] = result.processes;
+            // The processes field is now in the monitoring stream as a JSON array
+            const hostMetrics = tick.hosts[host];
+            const processesRaw = hostMetrics?.processes;
+            if (processesRaw && Array.isArray(processesRaw)) {
+              nextHistory[host] = processesRaw;
+            } else {
+              // Fallback: empty array if no process data
+              nextHistory[host] = [];
+            }
           }
           return nextHistory;
         });
