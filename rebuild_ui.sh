@@ -4,7 +4,8 @@
 
 set -e
 
-cd /home/jix/sparkrun-ui
+# Custom sparkrun-ui repo - DO NOT CONFUSE WITH UPSTREAM
+cd /home/shade/Pidev_proj/sparkrun-ui
 
 echo "Stopping current container..."
 docker stop sparkrun-ui
