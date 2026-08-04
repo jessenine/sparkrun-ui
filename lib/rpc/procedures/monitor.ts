@@ -3,7 +3,6 @@ import { z } from "zod";
 import { streamSparkrunNdjson, runSparkrunJson, runSparkrunText } from "@/lib/sparkrun";
 import { normalizeProcessList } from "./processes";
 import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
-import { queryAgentProcesses } from "@/lib/rpc/agent/client";
 
 // Process entry interface (duplicate of ProcessEntry in processes.ts to avoid circular deps)
 interface ProcessEntry {
@@ -156,19 +155,25 @@ export const processes = os
     );
     const targetHosts = input?.hosts || statusResult.hosts || [];
 
-    // Collect process data from each host's local agent
-    // This replaces the vulnerable SSH-based collection
+    // Collect process data by running `ps aux` directly on each host
+    // This bypasses the agent's buggy CPU calculation and gets fresh data
     const allProcesses: ProcessEntry[] = [];
     
     for (const host of targetHosts) {
       try {
-        // Each cluster member runs a local agent on port 8081
-        // Query the agent for process data
-        const agentProcesses = await queryAgentProcesses(host, 10);
-        allProcesses.push(...agentProcesses);
-        console.log(`[monitor.processes] Retrieved ${agentProcesses.length} processes from ${host}`);
-      } catch (error: any) {
-        console.error(`[monitor.processes] Error querying agent on ${host}:`, error?.message || error);
+        // Run `ps aux` on the remote host via sparkrun host exec
+        const psOutput = await runSparkrunText(
+          ["host", "exec", host, "--", "ps", "aux"],
+          { timeoutMs: 5000 },
+        );
+        
+        // Parse the ps aux output using the existing normalizeProcessList function
+        const processList = normalizeProcessList(psOutput.stdout);
+        allProcesses.push(...processList.processes);
+        console.log(`[monitor.processes] Retrieved ${processList.processes.length} processes from ${host}`);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[monitor.processes] Error running ps aux on ${host}:`, errorMessage);
         // Continue with other hosts even if one fails
       }
     }
