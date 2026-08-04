@@ -1,0 +1,115 @@
+name: Agent Build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agent/sparkrun-local-agent/**'
+  pull_request:
+    paths:
+      - 'agent/sparkrun-local-agent/**'
+  workflow_dispatch:
+
+concurrency:
+  group: agent-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build agent for ARM64
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU for cross-platform builds
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build agent binary
+        uses: docker/build-push-action@v6
+        with:
+          context: ./agent/sparkrun-local-agent
+          file: ./agent/sparkrun-local-agent/Dockerfile
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: sparkrun-local-agent:latest
+
+      - name: Extract binary
+        run: |
+          mkdir -p dist
+          docker run --rm sparkrun-local-agent:latest cat /usr/local/bin/sparkrun-local-agent > dist/sparkrun-local-agent
+          chmod +x dist/sparkrun-local-agent
+
+      - name: Verify binary
+        run: |
+          file dist/sparkrun-local-agent
+          echo "Binary details:"
+          ls -la dist/sparkrun-local-agent
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sparkrun-local-agent-arm64
+          path: dist/sparkrun-local-agent
+          retention-days: 7
+
+  deploy:
+    name: Deploy to cluster node
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sparkrun-local-agent-arm64
+          path: dist
+
+      - name: Deploy to cluster node
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AGENT_CLUSTER_HOST || '192.168.1.22' }}
+          username: ${{ secrets.AGENT_CLUSTER_USER || 'jix' }}
+          key: ${{ secrets.AGENT_SSH_KEY }}
+          script: |
+            # Stop the agent
+            sudo systemctl stop sparkrun-local-agent || true
+            
+            # Backup current binary
+            sudo cp /usr/local/bin/sparkrun-local-agent /usr/local/bin/sparkrun-local-agent.bak.$(date +%s) 2>/dev/null || true
+            
+            # Install new binary
+            cat > /tmp/sparkrun-local-agent
+            sudo mv /tmp/sparkrun-local-agent /usr/local/bin/sparkrun-local-agent
+            sudo chmod +x /usr/local/bin/sparkrun-local-agent
+            sudo chown root:root /usr/local/bin/sparkrun-local-agent
+            
+            # Restart agent
+            sudo systemctl daemon-reload
+            sudo systemctl start sparkrun-local-agent
+            
+            # Wait for it to start
+            sleep 3
+            
+            # Verify
+            echo "=== Service Status ==="
+            sudo systemctl status sparkrun-local-agent --no-pager
+            echo "=== Port Binding ==="
+            ss -tlnp | grep 8081 || echo "Port 8081 not bound"
+            
+            # Test endpoint
+            echo "=== Health Check ==="
+            curl -s http://127.0.0.1:8081/health || echo "Health check failed"
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          curl -s "http://${{ secrets.AGENT_CLUSTER_HOST || '192.168.1.22' }}:8081/health" | jq .

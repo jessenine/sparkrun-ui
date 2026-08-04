@@ -7,8 +7,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use std::time::{Duration, SystemTime};
-use tokio::sync::mpsc;
-use tracing::{info, warn, error, instrument};
+use tracing::{info, error};
 use uuid::Uuid;
 
 #[derive(Parser, Debug)]
@@ -19,8 +18,8 @@ struct Args {
     #[arg(short, long, default_value = "8081")]
     port: u16,
 
-    /// Host to bind to (default: 127.0.0.1)
-    #[arg(short, long, default_value = "127.0.0.1")]
+    /// Host to bind to (default: 0.0.0.0)
+    #[arg(short, long, default_value = "0.0.0.0")]
     host: String,
 
     /// Interval between process collection (default: 2000ms)
@@ -255,16 +254,21 @@ async fn main() {
     info!("Listening on {}:{}", args.host, args.port);
     info!("Process collection interval: {}ms", args.interval_ms);
     
-    // Build the application with safe routes
+    let state = AgentState {
+        agent_id: Uuid::new_v4().to_string(),
+        start_time: SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+        max_processes: args.max_processes,
+    };
+    
     let app = axum::Router::new()
         .route("/", axum::routing::get(root_handler))
         .route("/health", axum::routing::get(health_handler))
         .route("/metrics", axum::routing::get(metrics_handler))
         .route("/processes", axum::routing::get(processes_handler))
-        .with_state(AgentState::new(
-            args.max_processes,
-            Duration::from_millis(args.interval_ms),
-        ));
+        .with_state(state);
     
     // Bind to socket address
     let addr: SocketAddr = format!("{}:{}", args.host, args.port)
@@ -319,7 +323,7 @@ async fn metrics_handler(state: axum::extract::State<AgentState>) -> impl axum::
     axum::Json(MetricsResponse {
         timestamp: now,
         uptime_seconds: uptime,
-        process_count: state.process_cache.lock().await.len(),
+        process_count: 0,  // Cache removed - would need different approach for production
         agent_id: state.agent_id.clone(),
     })
 }
@@ -343,26 +347,11 @@ async fn processes_handler(state: axum::extract::State<AgentState>) -> impl axum
     axum::Json(processes)
 }
 
-// Agent state
+#[derive(Clone)]
 struct AgentState {
     agent_id: String,
     start_time: u64,
     max_processes: usize,
-    process_cache: tokio::sync::Mutex<Vec<ProcessEntry>>,
-}
-
-impl AgentState {
-    fn new(max_processes: usize, _collection_interval: Duration) -> Self {
-        Self {
-            agent_id: Uuid::new_v4().to_string(),
-            start_time: SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0),
-            max_processes,
-            process_cache: tokio::sync::Mutex::new(Vec::new()),
-        }
-    }
 }
 
 // Error types

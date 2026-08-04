@@ -18,7 +18,10 @@ ARG BUILD_DATE
 RUN echo "Build date: ${BUILD_DATE}" > /tmp/build_date
 # Create timestamp file BEFORE COPY to force cache invalidation
 RUN echo "Build timestamp: $(date +%s)" > /app/build_timestamp
+# Force cache bust by touching a marker file
+RUN echo "$(date +%s)" > /app/.cache_bust
 # Copy source files - this step will re-run if any source file changes (including timestamp)
+# Note: To force rebuild with latest source, use: docker build --no-cache -t sparkrun-ui:local .
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
@@ -56,7 +59,8 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y docker-ce-cli \
   # uv is needed by sparkrun for self-upgrade and running tools via uvx.
   && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh \
-  # Install next CLI for 'next start' command
+  # nodejs from nodesource doesn't include npm, so install npm separately
+  && apt-get install --no-install-recommends -y npm \
   && npm install -g next \
   && apt-get purge -y --auto-remove gnupg curl \
   && rm -rf /var/lib/apt/lists/*

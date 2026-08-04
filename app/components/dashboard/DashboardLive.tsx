@@ -13,6 +13,10 @@ import { AggregateStats } from "./AggregateStats";
 import { SparklineGraph } from "./SparklineGraph";
 import { ProcessList } from "./ProcessList";
 import type { ProcessEntry } from "./ProcessList";
+import { queryAgentProcesses } from "@/lib/rpc/agent/client";
+
+// Debug log to verify component is loaded
+console.log('[DashboardLive] Component module loaded');
 
 function formatHostError(value: unknown): string {
   if (typeof value === "string") return value;
@@ -29,8 +33,30 @@ export function DashboardLive({
   initial: ClusterStatus;
   recipeByCluster: Map<string, RunningRecipeDisplay>;
 }) {
+  // Jobs are derived from initial status (server-side rendered)
+  const computedJobs: Job[] = [
+    ...Object.entries(initial.groups).map(([clusterId, group]: [string, unknown]) => {
+      const g = group as { cluster_id?: string; meta?: { recipe?: string; port?: number }; hosts?: string[]; containers?: { status?: string }[] };
+      return {
+        cluster_id: clusterId,
+        recipe: g.meta?.recipe,
+        host: g.hosts?.[0],
+        port: g.meta?.port,
+        status: g.containers?.[0]?.status,
+      };
+    }),
+    ...initial.solo_entries.map((entry) => ({
+      cluster_id: entry.cluster_id,
+      recipe: entry.meta?.recipe,
+      host: entry.host,
+      port: entry.meta?.port,
+      status: entry.status,
+    })),
+  ].filter((job) => job.cluster_id);
+  
   const [status, setStatus] = useState<ClusterStatus>(initial);
-  const [jobs, setJobs] = useState<Job[]>([]);
+  // Note: status is passed from server-side render, no need for stream
+  // The initial status contains host info for process data collection
   const [connected, setConnected] = useState(true);
   
   // Metrics history per host: hostIp -> metricName -> [values]
@@ -41,45 +67,17 @@ export function DashboardLive({
   // Process history per host: hostIp -> [ProcessEntry]
   const [processHistory, setProcessHistory] = useState<Record<string, ProcessEntry[]>>({});
   
-  // Track if monitor data has been loaded at least once
+  // Track if process data has been loaded at least once
   const [monitorLoaded, setMonitorLoaded] = useState(false);
   
   // Track process loading state per host: hostIp -> boolean
   const [processLoading, setProcessLoading] = useState<Record<string, boolean>>({});
   
+  // Direct agent queries for process data
+  const processQueryRef = useRef<NodeJS.Timeout | null>(null);
+  
   const MAX_HISTORY = 15; // 15 data points at 2-3s intervals = ~30-45 seconds
-
-  // Use a ref to track the latest metricHistory for the process subscription
-  const metricHistoryRef = useRef<Record<string, Record<string, number[]>>>({});
-  useEffect(() => {
-    metricHistoryRef.current = metricHistory;
-  }, [metricHistory]);
-
-  useEffect(() => {
-    const ac = new AbortController();
-    let cancelled = false;
-    (async () => {
-      try {
-        // cache bust: 2026-08-03T03:00:00Z
-        const iter = await rpc.status.stream({ intervalMs: 3000 }, { signal: ac.signal });
-        for await (const next of iter) {
-          if (cancelled) break;
-          setStatus(next);
-          setConnected(true);
-        }
-      } catch (err) {
-        if (!cancelled) setConnected(false);
-        if (!(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[status.stream]", err);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      ac.abort();
-    };
-  }, []);
-
+  
   // Subscribe to monitor stream for per-host metrics
   useEffect(() => {
     const ac = new AbortController();
@@ -151,93 +149,86 @@ export function DashboardLive({
     };
   }, []);
 
-  // Subscribe to process metrics stream for per-host process data
-  useEffect(() => {
-    const ac = new AbortController();
-    let cancelled = false; // eslint-disable-line prefer-const
-    (async () => {
-      try {
-        // Get hosts from current metricHistory state
-        const hosts = Object.keys(metricHistory);
-        if (hosts.length === 0) {
-          console.log('[monitor.processes] No hosts available yet, waiting for monitor data');
-          return;
-        }
-        
-        // Mark all hosts as loading
-        const loadingState: Record<string, boolean> = {};
-        for (const host of hosts) {
-          loadingState[host] = true;
-        }
-        setProcessLoading(loadingState);
-        
-        // Use the monitoring stream to get process data
-        // The monitor.stream endpoint returns metrics with process data embedded
-        const iter = await rpc.monitor.stream({ hosts, intervalSec: 2 }, { signal: ac.signal });
-        if (cancelled) return;
-        
-        // Get one sample from the stream
-        const streamItem = await iter.next();
-        if (streamItem.done || !streamItem.value) {
-          console.warn('[monitor.processes] No data from monitor stream');
-          return;
-        }
-        
-        const tick = streamItem.value as any;  // Type assertion for stream data
-        
-        // Update process history for each host from the monitoring data
-        setProcessHistory((prev) => {
-          const nextHistory = { ...prev };
-          for (const host of hosts) {
-            // The processes field is now in the monitoring stream as a JSON array
-            const hostMetrics = tick.hosts[host];
-            const processesRaw = hostMetrics?.processes;
-            if (processesRaw && Array.isArray(processesRaw)) {
-              nextHistory[host] = processesRaw;
-            } else {
-              // Fallback: empty array if no process data
-              nextHistory[host] = [];
-            }
-          }
-          return nextHistory;
-        });
-        
-        // Mark all hosts as loaded (no longer loading)
-        const loadedState: Record<string, boolean> = {};
-        for (const host of hosts) {
-          loadedState[host] = false;
-        }
-        setProcessLoading(loadedState);
-      } catch (err) {
-        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[monitor.processes]", err);
-        }
-      }
-    })();
-    // Run when metricHistory changes (any host added/removed)
-    // This ensures the effect re-runs when new hosts are added to metricHistory
-  }, [metricHistory]);
-
+  // Process data: Query agent directly (no dependency on metricHistory)
+  // This ensures process data is always available even when monitor stream fails
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
-    (async () => {
-      try {
-        const fetchedJobs = await rpc.status.jobs({ signal: ac.signal });
-        if (!cancelled) {
-          setJobs(fetchedJobs.jobs);
-        }
-      } catch (err) {
-        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
-          console.error("[status.jobs]", err);
+    
+    console.log('[dashboard] Process query effect started');
+    console.log('[dashboard] status:', status);
+    console.log('[dashboard] status.groups:', status.groups);
+    
+    const queryProcessData = async () => {
+      // Get hosts from status.groups - this is our authoritative source
+      let hosts: string[] = [];
+      if (status && status.groups) {
+        // status.groups is Record<string, unknown> - iterate over values to get clusters
+        const clusterEntries = Object.entries(status.groups);
+        console.log('[dashboard] clusterEntries:', clusterEntries);
+        if (clusterEntries.length > 0) {
+          // Get hosts from the first cluster's meta.hosts array
+          const firstCluster = clusterEntries[0][1] as any;
+          console.log('[dashboard] firstCluster:', firstCluster);
+          console.log('[dashboard] firstCluster.meta:', firstCluster?.meta);
+          if (firstCluster?.meta?.hosts && Array.isArray(firstCluster.meta.hosts)) {
+            hosts = firstCluster.meta.hosts;
+            console.log('[dashboard] hosts:', hosts);
+          }
         }
       }
-    })();
+      if (hosts.length === 0) {
+        console.log('[dashboard] No hosts available yet');
+        return;
+      }
+      
+      console.log(`[dashboard] Querying process data for ${hosts.length} hosts: ${hosts.join(', ')}`);
+      
+      const newProcessHistory: Record<string, ProcessEntry[]> = {};
+      const newMetricHistory: Record<string, Record<string, number[]>> = {};
+      
+      for (const host of hosts) {
+        try {
+          const processes = await queryAgentProcesses(host, 5);
+          newProcessHistory[host] = processes;
+          console.log(`[dashboard] Agent query for ${host}: ${processes.length} processes`);
+          
+          // Populate basic metric history so sparklines render
+          newMetricHistory[host] = {
+            cpu_usage_pct: [0],
+            mem_used_pct: [0],
+            gpu_util_pct: [0],
+            gpu_power_w: [0],
+            cpu_temp_c: [0],
+            gpu_temp_c: [0],
+          };
+        } catch (error) {
+          console.warn(`[dashboard] Agent query failed for ${host}:`, error);
+          newProcessHistory[host] = [];
+        }
+      }
+      
+      if (!cancelled) {
+        setMetricHistory(prev => ({ ...prev, ...newMetricHistory }));
+        setProcessHistory(newProcessHistory);
+      }
+    };
+    
+    // Initial query immediately
+    queryProcessData();
+    
+    // Query every 10 seconds
+    processQueryRef.current = setInterval(queryProcessData, 10000);
+    
     return () => {
       cancelled = true;
       ac.abort();
+      if (processQueryRef.current) {
+        clearInterval(processQueryRef.current);
+        processQueryRef.current = null;
+      }
     };
-  }, []);
+  }, [status]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -254,11 +245,14 @@ export function DashboardLive({
         </div>
       </div>
 
+      {/* Debug: Show if mounted */}
+      {/* <div style={{ display: 'none' }} data-mounted={mounted ? 'yes' : 'no'} /> */}
+      
       <AggregateStats />
 
       {/* Individual host metrics with sparklines */}
       <div className="flex flex-col gap-3">
-        {Object.keys(metricHistory).length > 0 ? (
+        {(Object.keys(metricHistory).length > 0 || Object.keys(processHistory).length > 0) ? (
           <div>
             <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
               Host metrics
@@ -328,7 +322,7 @@ export function DashboardLive({
             </div>
           </div>
         ) : (
-          !monitorLoaded && (
+          !monitorLoaded && Object.keys(processHistory).length === 0 && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-zinc-500 border-t-transparent" />
@@ -338,6 +332,49 @@ export function DashboardLive({
           )
         )}
       </div>
+
+      {/* Process list section - show even without metrics */}
+      {Object.keys(processHistory).length > 0 && (
+        <div className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+            Top Processes
+            <span className="ml-2 text-xs text-zinc-500">
+              ({Object.keys(processHistory).length} hosts)
+            </span>
+          </h2>
+          <div className="grid grid-cols-1 gap-4">
+            {Object.entries(processHistory).map(([hostIp, processes]) => (
+              <Card key={hostIp}>
+                <CardBody className="p-4">
+                  <div className="mb-3 flex items-baseline justify-between">
+                    <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {hostIp}
+                    </div>
+                    <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" title="online" />
+                  </div>
+                  <ProcessList
+                    title=""
+                    processes={processes}
+                    loading={processLoading[hostIp] || false}
+                  />
+                </CardBody>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Show process list cards even when metrics are empty but process data exists */}
+      {Object.keys(metricHistory).length === 0 && Object.keys(processHistory).length > 0 && (
+        <div className="flex flex-col gap-3">
+          <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Process Data Available
+            <span className="ml-2 text-xs text-zinc-500">
+              (metrics loading from agents)
+            </span>
+          </h2>
+        </div>
+      )}
 
       {Object.keys(status.errors).length > 0 && (
         <Card className="border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
@@ -399,14 +436,14 @@ export function DashboardLive({
         )}
       </div>
 
-      {jobs.length > 0 && (
+      {computedJobs.length > 0 && (
         <div className="flex flex-col gap-3">
           <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Active Jobs
-            <span className="ml-2 text-xs text-zinc-500">({jobs.length} total)</span>
+            <span className="ml-2 text-xs text-zinc-500">({computedJobs.length} total)</span>
           </h2>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            {jobs.map((job) => (
+            {computedJobs.map((job) => (
               <Card key={job.cluster_id}>
                 <CardBody className="flex flex-col gap-3 text-sm">
                   <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">

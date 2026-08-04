@@ -1,0 +1,2 @@
+fn(State<AgentState>) -> impl std::future::Future<Output = impl IntoResponse> {metrics_handler}
+fn(State<AgentState>) -> impl std::future::Future<Output = impl IntoResponse> {metrics_handler}: Handler<_, _>

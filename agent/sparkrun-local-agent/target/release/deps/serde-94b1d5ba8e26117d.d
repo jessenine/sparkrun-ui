@@ -1,0 +1,14 @@
+/home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent/target/release/deps/serde-94b1d5ba8e26117d.d: /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent/target/release/build/serde-9e028b9eccb6c219/out/private.rs
+
+/home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent/target/release/deps/libserde-94b1d5ba8e26117d.rlib: /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent/target/release/build/serde-9e028b9eccb6c219/out/private.rs
+
+/home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent/target/release/deps/libserde-94b1d5ba8e26117d.rmeta: /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent/target/release/build/serde-9e028b9eccb6c219/out/private.rs
+
+/home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs:
+/home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs:
+/home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs:
+/home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs:
+/home/shade/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs:
+/home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent/target/release/build/serde-9e028b9eccb6c219/out/private.rs:
+
+# env-dep:OUT_DIR=/home/shade/Pidev_proj/sparkrun-ui/agent/sparkrun-local-agent/target/release/build/serde-9e028b9eccb6c219/out

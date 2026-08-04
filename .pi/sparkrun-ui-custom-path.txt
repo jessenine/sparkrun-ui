@@ -1,0 +1,11 @@
+# Custom sparkrun-ui repository path reference
+# DO NOT CONFUSE WITH UPSTREAM sparkrun-ui
+
+LOCAL PATH: /home/shade/Pidev_proj/sparkrun-ui
+
+CRITICAL: All scripts, documentation, and code references must use this exact path.
+
+When writing scripts, include this comment at the top:
+'# Custom sparkrun-ui repo - DO NOT CONFUSE WITH UPSTREAM'
+
+Git remote: https://github.com/jessenine/sparkrun-ui.git

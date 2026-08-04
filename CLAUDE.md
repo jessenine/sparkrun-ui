@@ -1,6 +1,12 @@
 # sparkrun-ui — Claude Code
 
+**CUSTOM/PRIVATE REPO** — Local version with ARM64 fixes, process data display, and Docker network_mode: host fixes.
+
 Read CONVENTIONS.md before any GitHub or git operation.
+
+CRITICAL: This is a CUSTOM/PRIVATE version. DO NOT CONFUSE WITH UPSTREAM sparkrun-ui repository.
+
+All scripts and documentation must use: `/home/shade/Pidev_proj/sparkrun-ui`
 
 <!-- BEGIN bigpowers:project -->
 ## Project

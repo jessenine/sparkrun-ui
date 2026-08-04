@@ -5,10 +5,29 @@
 <h1 align="center">sparkrun-ui</h1>
 
 <p align="center">
+  <strong>⚠️ CUSTOM/PRIVATE REPO ⚠️</strong><br />
+  Local version with ARM64 fixes, process data display, and Docker network_mode: host fixes.<br />
+  DO NOT CONFUSE WITH UPSTREAM sparkrun-ui repository.
+</p>
+
+<p align="center">
 Web interface for <a href="https://github.com/mcampa/sparkrun">sparkrun</a> —
 launch and monitor inference workloads on NVIDIA DGX Spark clusters from a
 browser.
 </p>
+
+## CRITICAL PATH REFERENCE
+
+**ALWAYS use this path:** `/home/shade/Pidev_proj/sparkrun-ui`
+
+**NEVER use:** `~/sparkrun-ui` or other paths
+
+When writing scripts, include at the top:
+```bash
+# Custom sparkrun-ui repo - DO NOT CONFUSE WITH UPSTREAM
+```
+
+Git remote: https://github.com/jessenine/sparkrun-ui.git
 
 ## Features
 
