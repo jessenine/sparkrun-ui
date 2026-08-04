@@ -171,8 +171,9 @@ export function DashboardLive({
           const firstCluster = clusterEntries[0][1] as any;
           console.log('[dashboard] firstCluster:', firstCluster);
           console.log('[dashboard] firstCluster.meta:', firstCluster?.meta);
-          if (firstCluster?.meta?.hosts && Array.isArray(firstCluster.meta.hosts)) {
-            hosts = firstCluster.meta.hosts;
+          const clusterHosts = firstCluster?.meta?.hosts;
+          if (clusterHosts && Array.isArray(clusterHosts)) {
+            hosts = clusterHosts;
             console.log('[dashboard] hosts:', hosts);
           }
         }

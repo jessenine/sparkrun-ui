@@ -59,11 +59,11 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y docker-ce-cli \
   # uv is needed by sparkrun for self-upgrade and running tools via uvx.
   && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh \
-  # nodejs from nodesource doesn't include npm, so install npm separately
-  && apt-get install --no-install-recommends -y npm \
-  && npm install -g next \
   && apt-get purge -y --auto-remove gnupg curl \
   && rm -rf /var/lib/apt/lists/*
+
+# Ensure next is in PATH - node_modules/.bin contains next binary copied from builder
+ENV PATH="/home/app/app/node_modules/.bin:/usr/local/bin:$PATH"
 
 # The host's sparkrun venv shim symlinks `python -> /usr/bin/python3` (system
 # Python). python:3.12-slim puts Python at /usr/local/bin/python3.12 so we
