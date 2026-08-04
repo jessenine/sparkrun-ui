@@ -26,6 +26,9 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
+# Copy .next/types to types/ so it's available for runtime copy
+RUN cp -r .next/types types
+
 # -----------------------------------------------------------------------------
 # Runtime: Python 3.12 (to match the host's uv-installed sparkrun) + Node 22
 # + ssh client + git. Sparkrun itself is NOT installed in the image — it is
