@@ -3,6 +3,21 @@ import { z } from "zod";
 import { writeDraft, writeDraftMeta } from "@/lib/draft";
 import { runSparkrun, streamSparkrunLines } from "@/lib/sparkrun";
 
+interface BuildRunArgsInput {
+  cluster?: string;
+  hosts?: string[];
+  tp?: number;
+}
+
+/** Build the `sparkrun run` argument list from input options. */
+export function buildRunArgs(path: string, input: BuildRunArgsInput): string[] {
+  const args = ["run", path, "--no-follow"];
+  if (input.cluster) args.push("--cluster", input.cluster);
+  else if (input.hosts?.length) args.push("--hosts", input.hosts.join(","));
+  if (input.tp) args.push("--tp", String(input.tp));
+  return args;
+}
+
 export const start = os
   .input(
     z.object({
@@ -29,10 +44,7 @@ export const start = os
       });
     }
 
-    const args = ["run", path, "--no-follow"];
-    if (input.cluster) args.push("--cluster", input.cluster);
-    else if (input.hosts?.length) args.push("--hosts", input.hosts.join(","));
-    if (input.tp) args.push("--tp", String(input.tp));
+    const args = buildRunArgs(path, input);
 
     // Wait for sparkrun to finish kicking off the container. With --no-follow
     // it returns once the workload is detached, so this is short for cached
@@ -93,10 +105,7 @@ export const startStream = os
       return;
     }
 
-    const args = ["run", path, "--no-follow"];
-    if (input.cluster) args.push("--cluster", input.cluster);
-    else if (input.hosts?.length) args.push("--hosts", input.hosts.join(","));
-    if (input.tp) args.push("--tp", String(input.tp));
+    const args = buildRunArgs(path, input);
 
     yield { line: `Running: sparkrun ${args.join(" ")}` };
 
