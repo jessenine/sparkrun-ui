@@ -16,6 +16,29 @@ const JobsListSchema = z.object({
   jobs: z.array(JobSchema),
 });
 
+/** Map a ClusterStatus to a flat list of jobs (groups + solo_entries). */
+export function mapStatusToJobs(status: ClusterStatus): Job[] {
+  return [
+    ...Object.entries(status.groups).map(([clusterId, group]: [string, unknown]) => {
+      const g = group as { cluster_id?: string; meta?: { recipe?: string; port?: number }; hosts?: string[]; containers?: { status?: string }[] };
+      return {
+        cluster_id: clusterId,
+        recipe: g.meta?.recipe,
+        host: g.hosts?.[0],
+        port: g.meta?.port,
+        status: g.containers?.[0]?.status,
+      };
+    }),
+    ...status.solo_entries.map((entry) => ({
+      cluster_id: entry.cluster_id,
+      recipe: entry.meta?.recipe,
+      host: entry.host,
+      port: entry.meta?.port,
+      status: entry.status,
+    })),
+  ].filter((job) => job.cluster_id);
+}
+
 async function fetchStatus(): Promise<ClusterStatus> {
   const raw = await runSparkrunJson<unknown>(["cluster", "status", "--json"]);
   return ClusterStatusSchema.parse(raw);
@@ -57,25 +80,5 @@ export const stream = os
 
 export const jobs = os.output(JobsListSchema).handler(async () => {
   const status = await fetchStatusWithFallback();
-  // Map both groups (record) and solo_entries (array) to job format
-  const jobs: Job[] = [
-    ...Object.entries(status.groups).map(([clusterId, group]: [string, unknown]) => {
-      const g = group as { cluster_id?: string; meta?: { recipe?: string; port?: number }; hosts?: string[]; containers?: { status?: string }[] };
-      return {
-        cluster_id: clusterId,
-        recipe: g.meta?.recipe,
-        host: g.hosts?.[0],
-        port: g.meta?.port,
-        status: g.containers?.[0]?.status,
-      };
-    }),
-    ...status.solo_entries.map((entry) => ({
-      cluster_id: entry.cluster_id,
-      recipe: entry.meta?.recipe,
-      host: entry.host,
-      port: entry.meta?.port,
-      status: entry.status,
-    })),
-  ].filter((job) => job.cluster_id);
-  return { jobs };
+  return { jobs: mapStatusToJobs(status) };
 });
