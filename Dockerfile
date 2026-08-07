@@ -31,9 +31,7 @@ RUN cp -r .next/types types
 
 # -----------------------------------------------------------------------------
 # Runtime: Python 3.12 (to match the host's uv-installed sparkrun) + Node 22
-# + ssh client + git. Sparkrun itself is NOT installed in the image — it is
-# bind-mounted from the host so the container always uses the same version
-# the user already has. Git is needed by sparkrun to clone/pull recipe
+# + ssh client + git. Git is needed by sparkrun to clone/pull recipe
 # registries.
 # -----------------------------------------------------------------------------
 FROM python:3.12-slim-bookworm AS runtime
@@ -62,6 +60,8 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y docker-ce-cli \
   # uv is needed by sparkrun for self-upgrade and running tools via uvx.
   && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh \
+  # Install sparkrun itself so the container has full CLI access.
+  && uv tool install sparkrun \
   && apt-get purge -y --auto-remove gnupg curl \
   && rm -rf /var/lib/apt/lists/*
 

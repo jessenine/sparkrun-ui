@@ -21,7 +21,24 @@ async function fetchStatus(): Promise<ClusterStatus> {
   return ClusterStatusSchema.parse(raw);
 }
 
-export const get = os.output(ClusterStatusSchema).handler(fetchStatus);
+async function fetchStatusWithFallback(): Promise<ClusterStatus> {
+  try {
+    return await fetchStatus();
+  } catch (err) {
+    console.warn("[status.get] sparkrun unavailable, returning empty status:", err);
+    return {
+      host_count: 0,
+      groups: {},
+      solo_entries: [],
+      idle_hosts: [],
+      pending_ops: [],
+      errors: {},
+      total_containers: 0,
+    };
+  }
+}
+
+export const get = os.output(ClusterStatusSchema).handler(fetchStatusWithFallback);
 
 export const stream = os
   .input(z.object({ intervalMs: z.number().int().min(500).max(30_000).default(3000) }).optional())
@@ -30,7 +47,7 @@ export const stream = os
     const interval = input?.intervalMs ?? 3000;
     while (!signal?.aborted) {
       try {
-        yield await fetchStatus();
+        yield await fetchStatusWithFallback();
       } catch (err) {
         console.error("[status.stream]", err);
       }
@@ -39,7 +56,7 @@ export const stream = os
   });
 
 export const jobs = os.output(JobsListSchema).handler(async () => {
-  const status = await fetchStatus();
+  const status = await fetchStatusWithFallback();
   // Map both groups (record) and solo_entries (array) to job format
   const jobs: Job[] = [
     ...Object.entries(status.groups).map(([clusterId, group]: [string, unknown]) => {

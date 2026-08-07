@@ -144,12 +144,17 @@ export const stream = os
     .handler(async function* ({ input, signal }) {
       const args = monitorArgs(input, input?.intervalSec ?? 2);
       console.log("[monitor.stream] Running command:", args.join(" "));
-      for await (const obj of streamSparkrunNdjson<unknown>(args, { signal }) as AsyncIterable<unknown>) {
-        if (signal?.aborted) break;
-        console.log("[monitor.stream] Raw obj:", JSON.stringify(obj));
-        const normalized = normalizeMonitorOutput(obj);
-        console.log("[monitor.stream] Normalized:", JSON.stringify(normalized));
-        yield normalized;
+      try {
+        for await (const obj of streamSparkrunNdjson<unknown>(args, { signal }) as AsyncIterable<unknown>) {
+          if (signal?.aborted) break;
+          console.log("[monitor.stream] Raw obj:", JSON.stringify(obj));
+          const normalized = normalizeMonitorOutput(obj);
+          console.log("[monitor.stream] Normalized:", JSON.stringify(normalized));
+          yield normalized;
+        }
+      } catch (err) {
+        console.warn("[monitor.stream] sparkrun unavailable, yielding empty tick:", err);
+        yield { timestamp: Date.now(), hosts: {} };
       }
     });
 
