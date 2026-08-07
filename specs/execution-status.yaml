@@ -5,12 +5,12 @@ Flat story/epic status tracking.
 ## Schema
 
 ```yaml
-status: amber  # amber — e01s05 has host agent dependency (ADR-003)
+status: green  # e01s05 complete — host agent fallback verified working
 
 epics:
   e01:
     title: Dashboard Live Metrics
-    status: amber  # amber — host agent dependency (ADR-003)
+    status: green  # all 5 stories complete and verified
     stories:
       - id: s01
         title: Host Metrics Streaming
@@ -30,8 +30,8 @@ epics:
         verify: pnpm test
       - id: s05
         title: Process Utility (ProcessList + RPC endpoint)
-        status: amber  # amber — host agent dependency (ADR-003)
-        verify: pnpm test
+        status: green  # host agent fallback verified working end-to-end
+        verify: pnpm test && node -e 'fetch("http://127.0.0.1:5678/rpc/monitor/processes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({json:{}})}).then(r=>r.json()).then(d=>{const n=d?.json?.processes?.length||0;process.exit(n>0?0:1)})'
 
 stories:
   s01:
@@ -57,8 +57,8 @@ stories:
   s05:
     epic_id: e01
     title: Process Utility (ProcessList + RPC endpoint)
-    status: amber  # amber — host agent dependency (ADR-003)
-    verify: pnpm test
+    status: green  # host agent fallback verified working end-to-end
+    verify: pnpm test && node -e 'fetch("http://127.0.0.1:5678/rpc/monitor/processes",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({json:{}})}).then(r=>r.json()).then(d=>{const n=d?.json?.processes?.length||0;process.exit(n>0?0:1)})'
 ```
 
 ## Usage
