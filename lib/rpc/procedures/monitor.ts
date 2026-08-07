@@ -174,20 +174,24 @@ export const processes = os
     // Fetch a single snapshot from the monitor stream.
     // sparkrun cluster monitor --json streams process data per host.
     // We take one tick and extract the process lists.
-    const args = monitorArgs(input, 1);
+    // Don't pass --hosts filter: sparkrun inside the Docker container can't SSH
+    // to explicit IPs (host key verification fails). Without --hosts, sparkrun uses
+    // its default cluster SSH config which works. Additionally, all hosts' process
+    // data is aggregated regardless of filter.
+    const args = ["cluster", "monitor", "--json", "--interval", "1"];
     console.log("[monitor.processes] Running command:", args.join(" "));
 
     const allProcesses: ProcessEntry[] = [];
-    let gotTick = false;
+    let gotData = false;
 
     for await (const obj of streamSparkrunNdjson<unknown>(args, { signal }) as AsyncIterable<unknown>) {
       if (signal?.aborted) break;
-      if (gotTick) break; // Only one tick needed
-      gotTick = true;
+      if (gotData) break; // Only one tick with data needed
 
       const tick = normalizeMonitorOutput(obj);
 
       // Extract process data from each host's metrics
+      let hostHasProcesses = false;
       for (const [, hostData] of Object.entries(tick.hosts)) {
         if (!hostData.processes) continue;
 
@@ -202,13 +206,22 @@ export const processes = os
           }
         }
 
-        allProcesses.push(...processes);
+        if (processes.length > 0) {
+          hostHasProcesses = true;
+          allProcesses.push(...processes);
+        }
       }
+
+      if (hostHasProcesses) {
+        gotData = true;
+      }
+      // If this tick had no process data (e.g. SSH errors for all hosts),
+      // continue to the next tick or fall through to host agent fallback
       break;
     }
 
-    if (!gotTick) {
-      console.warn("[monitor.processes] No tick received from sparkrun monitor stream");
+    if (!gotData) {
+      console.warn("[monitor.processes] No process data from sparkrun monitor stream");
       // Fallback: try the host-local agent (runs outside container with proper SSH/sparkrun access)
       const agentProcesses = await fetchFromHostAgent();
       if (agentProcesses && agentProcesses.length > 0) {
