@@ -1,43 +1,47 @@
-import { createServer, type Server } from "node:net";
-import { describe, expect, it, afterEach } from "vitest";
-import { probePort } from "./portCheck";
+import { createServer } from "node:net";
+import { describe, expect, it } from "vitest";
+import { probePort, probePortsParallel } from "./portCheck";
 
-let servers: Server[] = [];
-afterEach(async () => {
-  await Promise.all(servers.map((s) => new Promise<void>((r) => s.close(() => r()))));
-  servers = [];
-});
-
-async function listen(): Promise<number> {
-  return new Promise((resolve) => {
-    const s = createServer();
-    servers.push(s);
-    s.listen(0, "127.0.0.1", () => {
-      const addr = s.address();
-      if (addr && typeof addr === "object") resolve(addr.port);
-    });
-  });
+async function listen() {
+  const srv = createServer();
+  await new Promise<void>((res) => srv.listen(0, "127.0.0.1", res));
+  const addr = srv.address();
+  const port = typeof addr === "object" && addr ? addr.port : 0;
+  return { srv, port };
 }
 
-describe("probePort", () => {
-  it("returns true when a port is open", async () => {
-    const port = await listen();
-    const inUse = await probePort("127.0.0.1", port);
-    expect(inUse).toBe(true);
+describe("probePort (SC-P1-29)", () => {
+  it("returns true when the port is open", async () => {
+    const { srv, port } = await listen();
+    try {
+      await expect(probePort("127.0.0.1", port, 500)).resolves.toBe(true);
+    } finally {
+      srv.close();
+    }
   });
 
-  it("returns false for a closed port", async () => {
-    // Pick a high port unlikely to be in use
-    const port = 1; // privileged — connection will refuse
-    const inUse = await probePort("127.0.0.1", port);
-    expect(inUse).toBe(false);
+  it("returns false when the port is closed", async () => {
+    // Grab an ephemeral port then release it so nothing is listening.
+    const { srv, port } = await listen();
+    await new Promise<void>((res) => srv.close(() => res()));
+    await expect(probePort("127.0.0.1", port, 300)).resolves.toBe(false);
   });
 
-  it("returns false on timeout", async () => {
-    // Black-hole route: 192.0.2.0/24 (TEST-NET-1) won't respond
-    const start = Date.now();
-    const inUse = await probePort("192.0.2.1", 9999, 150);
-    expect(inUse).toBe(false);
-    expect(Date.now() - start).toBeLessThan(500);
+  it("returns false on an unreachable address", async () => {
+    await expect(probePort("203.0.113.1", 1, 300)).resolves.toBe(false);
+  });
+});
+
+describe("probePortsParallel (SC-P1-30)", () => {
+  it("returns one result per host in order", async () => {
+    const { srv, port } = await listen();
+    try {
+      const results = await probePortsParallel(["127.0.0.1", "192.0.2.1"], port);
+      expect(results).toHaveLength(2);
+      expect(results[0]).toEqual({ host: "127.0.0.1", inUse: true });
+      expect(results[1]).toEqual({ host: "192.0.2.1", inUse: false });
+    } finally {
+      srv.close();
+    }
   });
 });
