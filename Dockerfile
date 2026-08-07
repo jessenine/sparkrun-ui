@@ -42,11 +42,8 @@ RUN apt-get update \
        ca-certificates \
        openssh-client \
        git \
-       gnupg \
        gosu \
        tini \
-  && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-  && apt-get install --no-install-recommends -y nodejs \
   # Docker CLI is needed because sparkrun runs `docker` locally for any
   # cluster host that resolves to 127.0.0.1. The daemon stays on the host;
   # the container talks to it via a bind-mounted /var/run/docker.sock.
@@ -56,14 +53,20 @@ RUN apt-get update \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list \
   && apt-get update \
   && apt-get install --no-install-recommends -y docker-ce-cli \
-  && apt-get update \
-  && apt-get install --no-install-recommends -y docker-ce-cli \
   # uv is needed by sparkrun for self-upgrade and running tools via uvx.
   && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh \
   # Install sparkrun itself so the container has full CLI access.
   && pip install --no-cache-dir sparkrun \
-  && apt-get purge -y --auto-remove gnupg curl \
+  && apt-get purge -y --auto-remove gnupg \
   && rm -rf /var/lib/apt/lists/*
+
+# Copy Node.js from the builder stage (node:22-bookworm-slim) to get Node 22
+COPY --from=builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=builder /usr/local/include/node /usr/local/include/node
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+  && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+  && ln -sf /usr/local/lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
 
 # Ensure next is in PATH - node_modules/.bin contains next binary copied from builder
 ENV PATH="/home/app/app/node_modules/.bin:/usr/local/bin:$PATH"
