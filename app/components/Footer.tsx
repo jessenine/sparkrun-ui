@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 
-const REPO_URL = "https://github.com/mcampa/sparkrun-ui";
+const REPO_URL = "https://github.com/jessenine/sparkrun-ui";
 const SPARKRUN_URL = "https://github.com/mcampa/sparkrun";
 
 // Version loaded at build time from package.json via Next.js bundler
