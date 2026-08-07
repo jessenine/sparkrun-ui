@@ -66,6 +66,16 @@ bugs:
     status: open
     assigned_to: null
     created_by: agent
+  - bug_id: BUG-20260807T184042
+    date: "2026-08-07"
+    severity: high
+    priority: 1
+    scope: api
+    title: "Recipe validation fails with EACCES on draft directory"
+    file: specs/bugs/BUG-20260807T184042-validate-eacces-permission-denied.md
+    status: resolved
+    assigned_to: agent
+    created_by: agent
 ```
 
 ## Fields

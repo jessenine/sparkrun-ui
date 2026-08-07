@@ -6,20 +6,19 @@ Session state and workflow tracking for bigpowers.
 
 ```yaml
 workflow_mode: solo-git  # team-pr | solo-git (default)
-active_flow: fix_bug        # build_epic | fix_bug | planning | null
+active_flow: planning        # build_epic | fix_bug | planning | null
 git:
   branch: main
   commit: 74f1fc4
   status: clean          # clean | dirty
 handoff:
-  next_skill: verify-work   # both bugs fixed and deployed
-  completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix]
+  next_skill: develop-tdd    # test plan complete — next: implement missing tests
+  completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan]
 metrics:
-  story_start: "2026-08-07T16:27:00Z"  # bug fix cycle starts
-  story_progress: 100  # both bugs fixed, deployed, verified
-bug_cycle:
-  completed: true
-  completed_steps: [1, 2, 3, 4, 5]
+  story_start: "2026-08-07T18:57:00Z"  # test plan creation
+  story_progress: 100  # test plan complete
+completed_work:
+  - "BUG cycle: BUG-20260807T184042 (EACCES fix) — resolved and deployed"
 epic:
   current_epic_id: e01
   current_story_id: e01s05
@@ -28,6 +27,7 @@ epic:
     - BUG-20260807T062700: "Process list always empty — resolved via host agent fallback (ADR-003)"
     - BUG-20260807T162700: "Dashboard metrics and graphs not showing — resolved (sparkrun installed via pip)"
     - BUG-20260807T162715: "Recipes page returns 500 — resolved (sparkrun installed via pip)"
+    - BUG-20260807T184042: "Recipe validation fails with EACCES on draft directory — resolved (chmod 777 on draft dir)"
 ```
 
 ## Usage

@@ -1,4 +1,4 @@
-import { mkdir, writeFile, readFile, unlink, readdir, stat } from "node:fs/promises";
+import { mkdir, chmod, writeFile, readFile, unlink, readdir, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,6 +7,11 @@ const MAX_AGE_MS = 30 * 60 * 1000;
 
 async function ensureDir() {
   await mkdir(DRAFT_DIR, { recursive: true });
+  // Support user transition: the first container boot or a previous root-owned
+  // run can leave this dir owned by root with 755. The server runs as `app`
+  // (gosu) so future writes fail with EACCES. chmod 777 is safe for transient
+  // files under /tmp.
+  await chmod(DRAFT_DIR, 0o777).catch(() => {});
 }
 
 function safeId(id: string): string {
