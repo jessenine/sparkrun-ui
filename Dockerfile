@@ -61,12 +61,12 @@ RUN apt-get update \
   # uv is needed by sparkrun for self-upgrade and running tools via uvx.
   && curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/local/bin sh \
   # Install sparkrun itself so the container has full CLI access.
-  && uv tool install sparkrun \
+  && pip install --no-cache-dir sparkrun \
   && apt-get purge -y --auto-remove gnupg curl \
   && rm -rf /var/lib/apt/lists/*
 
 # Ensure next is in PATH - node_modules/.bin contains next binary copied from builder
-ENV PATH="/home/app/app/node_modules/.bin:/home/app/.local/bin:/usr/local/bin:$PATH"
+ENV PATH="/home/app/app/node_modules/.bin:/usr/local/bin:$PATH"
 
 # The host's sparkrun venv shim symlinks `python -> /usr/bin/python3` (system
 # Python). python:3.12-slim puts Python at /usr/local/bin/python3.12 so we
