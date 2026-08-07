@@ -26,6 +26,16 @@ bugs:
     status: resolved
     assigned_to: null
     created_by: agent
+  - bug_id: BUG-20260807T101500
+    date: "2026-08-07"
+    severity: high
+    priority: 1
+    scope: api
+    title: "Process list empty in deployed dashboard -- --hosts flag kills process data"
+    file: specs/bugs/BUG-20260807T101500-process-list-host-agent-fix.md
+    status: resolved
+    assigned_to: agent
+    created_by: agent
   - bug_id: BUG-001
     date: "2024-01-15"
     severity: high
