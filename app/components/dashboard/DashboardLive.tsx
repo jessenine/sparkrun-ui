@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { AlertTriangle, Rocket, List } from "lucide-react";
+import { AlertTriangle, Rocket, List, Info } from "lucide-react";
 import { rpc } from "@/lib/rpc/client";
 import type { ClusterStatus, Job } from "@/lib/schemas";
 import type { RunningRecipeDisplay } from "@/lib/runningRecipes";
@@ -13,7 +13,6 @@ import { AggregateStats } from "./AggregateStats";
 import { SparklineGraph } from "./SparklineGraph";
 import { ProcessList } from "./ProcessList";
 import type { ProcessEntry } from "./ProcessList";
-import { queryAgentProcesses } from "@/lib/rpc/agent/client";
 
 // Debug log to verify component is loaded
 console.log('[DashboardLive] Component module loaded');
@@ -149,64 +148,56 @@ export function DashboardLive({
     };
   }, []);
 
-  // Process data: Query agent directly (no dependency on metricHistory)
-  // This ensures process data is always available even when monitor stream fails
+  // Process data: Fetch from server-side RPC handler (reads sparkrun cluster monitor --json)
   useEffect(() => {
     const ac = new AbortController();
     let cancelled = false;
     
     console.log('[dashboard] Process query effect started');
-    console.log('[dashboard] status:', status);
-    console.log('[dashboard] status.groups:', status.groups);
     
     const queryProcessData = async () => {
-      // Get hosts from status.groups - this is our authoritative source
-      let hosts: string[] = [];
-      if (status && status.groups) {
-        // status.groups is Record<string, unknown> - iterate over values to get clusters
-        const clusterEntries = Object.entries(status.groups);
-        console.log('[dashboard] clusterEntries:', clusterEntries);
-        if (clusterEntries.length > 0) {
-          // Get hosts from the first cluster's meta.hosts array
-          const firstCluster = clusterEntries[0][1] as any;
-          console.log('[dashboard] firstCluster:', firstCluster);
-          console.log('[dashboard] firstCluster.meta:', firstCluster?.meta);
-          const clusterHosts = firstCluster?.meta?.hosts;
-          if (clusterHosts && Array.isArray(clusterHosts)) {
-            hosts = clusterHosts;
-            console.log('[dashboard] hosts:', hosts);
-          }
-        }
+      // Get hosts from status.groups — authoritative source
+      const clusterEntries = status?.groups ? Object.entries(status.groups) : [];
+      if (clusterEntries.length === 0) {
+        console.log('[dashboard] No cluster entries yet');
+        return;
       }
+      const firstCluster = clusterEntries[0][1] as { meta?: { hosts?: string[] } } | undefined;
+      const hosts = firstCluster?.meta?.hosts ?? [];
       if (hosts.length === 0) {
         console.log('[dashboard] No hosts available yet');
         return;
       }
       
-      console.log(`[dashboard] Querying process data for ${hosts.length} hosts: ${hosts.join(', ')}`);
+      console.log(`[dashboard] Fetching processes for ${hosts.length} hosts: ${hosts.join(', ')}`);
       
       const newProcessHistory: Record<string, ProcessEntry[]> = {};
       const newMetricHistory: Record<string, Record<string, number[]>> = {};
       
-      for (const host of hosts) {
-        try {
-          const processes = await queryAgentProcesses(host, 5);
-          newProcessHistory[host] = processes;
-          console.log(`[dashboard] Agent query for ${host}: ${processes.length} processes`);
+      try {
+        const result = await rpc.monitor.processes({ hosts });
+        console.log(`[dashboard] RPC processes result:`, result);
+        
+        if (result && Array.isArray(result.processes)) {
+          // Result is a flat list — assign to all hosts for now
+          for (const host of hosts) {
+            newProcessHistory[host] = result.processes as ProcessEntry[];
+          }
           
           // Populate basic metric history so sparklines render
-          newMetricHistory[host] = {
-            cpu_usage_pct: [0],
-            mem_used_pct: [0],
-            gpu_util_pct: [0],
-            gpu_power_w: [0],
-            cpu_temp_c: [0],
-            gpu_temp_c: [0],
-          };
-        } catch (error) {
-          console.warn(`[dashboard] Agent query failed for ${host}:`, error);
-          newProcessHistory[host] = [];
+          for (const host of hosts) {
+            newMetricHistory[host] = {
+              cpu_usage_pct: [0],
+              mem_used_pct: [0],
+              gpu_util_pct: [0],
+              gpu_power_w: [0],
+              cpu_temp_c: [0],
+              gpu_temp_c: [0],
+            };
+          }
         }
+      } catch (error) {
+        console.warn('[dashboard] RPC processes failed:', error);
       }
       
       if (!cancelled) {

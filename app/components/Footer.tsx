@@ -4,6 +4,10 @@ import Image from "next/image";
 const REPO_URL = "https://github.com/mcampa/sparkrun-ui";
 const SPARKRUN_URL = "https://github.com/mcampa/sparkrun";
 
+// Version loaded at build time from package.json via Next.js bundler
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { version: PKG_VERSION } = require("../../package.json") as { version: string };
+
 export function Footer() {
   return (
     <footer className="mt-12 border-t border-zinc-200 bg-white/80 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
@@ -11,7 +15,7 @@ export function Footer() {
         <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
           <Image src="/logo.svg" alt="" width={16} height={16} />
           <span>
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">sparkrun-ui</span> · web
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">sparkrun-ui</span> v{PKG_VERSION} · web
             UI for{" "}
             <Link
               href={SPARKRUN_URL}
