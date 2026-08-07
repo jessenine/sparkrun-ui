@@ -5,12 +5,12 @@ Flat story/epic status tracking.
 ## Schema
 
 ```yaml
-status: red  # red — discovered defects blocking deployment
+status: amber  # amber — e01s05 has host agent dependency (ADR-003)
 
 epics:
   e01:
     title: Dashboard Live Metrics
-    status: red  # red — discovered defects blocking deploy
+    status: amber  # amber — host agent dependency (ADR-003)
     stories:
       - id: s01
         title: Host Metrics Streaming
@@ -22,7 +22,7 @@ epics:
         verify: pnpm test
       - id: s03
         title: RPC Agent Client & Tests
-        status: red  # 11 tests failing (missing vi import)
+        status: green
         verify: pnpm test
       - id: s04
         title: Individual Metric Graphs (SparklineGraph)
@@ -30,7 +30,7 @@ epics:
         verify: pnpm test
       - id: s05
         title: Process Utility (ProcessList + RPC endpoint)
-        status: red  # BUG-20260807T062700: process list always empty
+        status: amber  # amber — host agent dependency (ADR-003)
         verify: pnpm test
 
 stories:
@@ -57,7 +57,7 @@ stories:
   s05:
     epic_id: e01
     title: Process Utility (ProcessList + RPC endpoint)
-    status: green
+    status: amber  # amber — host agent dependency (ADR-003)
     verify: pnpm test
 ```
 

@@ -12,24 +12,20 @@ git:
   commit: 199067e
   status: clean          # clean | dirty
 handoff:
-  next_skill: request-review   # audit-code passed, defects fixed — get fresh reviewer
-  completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix]
+  next_skill: release-branch   # code green, architecture documented — ready to ship
+  completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, write-document]
 metrics:
   story_start: "2026-08-01T22:40:00Z"  # e01s05 starts
   story_progress: 60  # 5/6 tasks code-written but deployment blocked by discovered defects
 bug_cycle:
   current_step: 5       # validate-fix phase
-  completed_steps: [1,2,3,4]    # 1=bug_reported, 2=rca_complete, 3=approach_identified, 4=tdd_plan_written
+  completed_steps: [1,2,3,4,5]    # 1=bug_reported, 2=rca_complete, 3=approach_identified, 4=tdd_plan_written, 5=validate_fix
 epic:
   current_epic_id: e01
   current_story_id: e01s05
   current_tasks: [t01, t02, t03, t04, t05, t06]  # implementation tasks for process utility - t05 and t06 remaining
   known_defects:
-    - BUG-20260807T062700: "Process list always empty - sparkrun host exec not a valid command"
-    - 11 failing tests in client.test.ts (missing vi import)
-    - ps aux parser uses wrong column positions (expects 4-col, real ps aux has 11 col)
-    - tests/process-list.test.ts: empty/broken test suite
-    - app/rpc-disabled/: stale dead code duplicate of app/rpc/
+    - BUG-20260807T062700: "Process list always empty — resolved via host agent fallback (ADR-003)"
 ```
 
 ## Usage

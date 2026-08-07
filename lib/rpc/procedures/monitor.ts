@@ -3,6 +3,33 @@ import { z } from "zod";
 import { streamSparkrunNdjson } from "@/lib/sparkrun";
 import type { ProcessEntry } from "./processes";
 
+/**
+ * Attempt to fetch process data from a host-local agent on port 8081.
+ * The agent runs on each host outside the Docker container and has proper
+ * SSH/sparkrun access, unlike sparkrun inside the container.
+ */
+async function fetchFromHostAgent(): Promise<ProcessEntry[] | null> {
+  try {
+    const url = new URL("http://127.0.0.1:8081/processes");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        console.warn("[monitor.processes] Host agent returned status", response.status);
+        return null;
+      }
+      const data = await response.json() as { processes?: ProcessEntry[] };
+      return data.processes ?? null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (error) {
+    console.warn("[monitor.processes] Host agent unreachable:", error);
+    return null;
+  }
+}
+
 // Hostname/name validation to prevent argument injection into sparkrun
 const namePattern = /^[a-zA-Z0-9._-]+$/;
 
@@ -181,7 +208,19 @@ export const processes = os
     }
 
     if (!gotTick) {
-      console.warn("[monitor.processes] No tick received from monitor stream — returning empty");
+      console.warn("[monitor.processes] No tick received from sparkrun monitor stream");
+      // Fallback: try the host-local agent (runs outside container with proper SSH/sparkrun access)
+      const agentProcesses = await fetchFromHostAgent();
+      if (agentProcesses && agentProcesses.length > 0) {
+        console.log("[monitor.processes] Falling back to host agent —", agentProcesses.length, "processes");
+        const valid = agentProcesses.filter(p => !isNaN(p.cpu) && !isNaN(p.mem));
+        valid.sort((a, b) => b.cpu - a.cpu);
+        return {
+          timestamp: Date.now(),
+          processes: valid.slice(0, 10),
+        };
+      }
+      console.warn("[monitor.processes] Host agent also unavailable — returning empty");
     }
 
     // Filter out entries where cpu or mem is NaN before sorting

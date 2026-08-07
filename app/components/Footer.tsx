@@ -15,7 +15,7 @@ export function Footer() {
         <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
           <Image src="/logo.svg" alt="" width={16} height={16} />
           <span>
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">sparkrun-ui</span> v{PKG_VERSION} · web
+            <span className="font-medium text-zinc-700 dark:text-zinc-300">jix-sparkrun-ui</span> v{PKG_VERSION} · web
             UI for{" "}
             <Link
               href={SPARKRUN_URL}

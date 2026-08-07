@@ -16,7 +16,7 @@
 - On the frontend, add a new component for process list (similar to `SparklineGraph`)
 - Consider performance: avoid fetching full `ps aux` for every process on every host every 2s
 
-**Dependencies:** None (can be done independently)
+**Dependencies:** Host agent `sparkrun-local-agent` running on port 8081 on each cluster node (see ADR-003)
 
 **Story points:** 5
 
