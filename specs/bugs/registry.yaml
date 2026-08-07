@@ -36,6 +36,26 @@ bugs:
     status: resolved
     assigned_to: agent
     created_by: agent
+  - bug_id: BUG-20260807T162700
+    date: "2026-08-07"
+    severity: high
+    priority: 1
+    scope: api
+    title: "Dashboard metrics and graphs not showing — sparkrun not in container"
+    file: specs/bugs/BUG-20260807T162700-dashboard-metrics-empty.md
+    status: open
+    assigned_to: agent
+    created_by: agent
+  - bug_id: BUG-20260807T162715
+    date: "2026-08-07"
+    severity: high
+    priority: 1
+    scope: api
+    title: "Recipes page returns 500 — sparkrun not in container"
+    file: specs/bugs/BUG-20260807T162715-recipes-page-500.md
+    status: open
+    assigned_to: agent
+    created_by: agent
   - bug_id: BUG-001
     date: "2024-01-15"
     severity: high
