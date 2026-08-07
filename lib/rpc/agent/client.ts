@@ -5,7 +5,6 @@
  * Replaces SSH-based process collection with local HTTP calls.
  */
 
-import { ORPCError } from "@orpc/server";
 import type { ProcessEntry } from "../procedures/processes";
 
 export interface AgentProcessList {

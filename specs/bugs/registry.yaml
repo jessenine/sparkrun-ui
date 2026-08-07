@@ -16,6 +16,16 @@ bugs:
     status: open
     assigned_to: null
     created_by: agent
+  - bug_id: BUG-20260807T062700
+    date: "2026-08-07"
+    severity: high
+    priority: 1
+    scope: api
+    title: "Process list always empty - sparkrun host exec does not exist"
+    file: specs/bugs/BUG-20260807T062700-process-list-always-empty.md
+    status: resolved
+    assigned_to: null
+    created_by: agent
   - bug_id: BUG-001
     date: "2024-01-15"
     severity: high

@@ -124,4 +124,49 @@ describe("normalizeMonitorOutput", () => {
     const result = normalizeMonitorOutput(raw);
     expect(Object.keys(result.hosts)).toHaveLength(0);
   });
+
+  it("preserves processes array from sample data", () => {
+    const raw = {
+      timestamp: 1780256101.68883,
+      hosts: [
+        {
+          host: "127.0.0.1",
+          error: null,
+          sample: {
+            processes: [
+              { user: "root", pid: 1, cpu: 0.0, mem: 0.1, command: "/sbin/init" },
+              { user: "jix", pid: 1234, cpu: 45.5, mem: 2.3, command: "python3 -m flask run" },
+            ],
+          },
+        },
+      ],
+    };
+    const result = normalizeMonitorOutput(raw);
+    expect(result.hosts["127.0.0.1"].processes).toBeDefined();
+    expect(Array.isArray(result.hosts["127.0.0.1"].processes)).toBe(true);
+    const procs = result.hosts["127.0.0.1"].processes as Array<{ user: string; pid: number }>;
+    expect(procs).toHaveLength(2);
+    expect(procs[0].user).toBe("root");
+  });
+
+  it("parses processes string into array", () => {
+    const raw = {
+      timestamp: 1780256101.68883,
+      hosts: [
+        {
+          host: "127.0.0.1",
+          error: null,
+          sample: {
+            processes: JSON.stringify([
+              { user: "jix", pid: 1234, cpu: 45.5, mem: 2.3, command: "python3 -m flask run" },
+            ]),
+          },
+        },
+      ],
+    };
+    const result = normalizeMonitorOutput(raw);
+    const procs = result.hosts["127.0.0.1"].processes as Array<{ user: string; pid: number }>;
+    expect(procs).toHaveLength(1);
+    expect(procs[0].pid).toBe(1234);
+  });
 });

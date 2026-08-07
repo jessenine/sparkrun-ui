@@ -4,8 +4,8 @@
  * Unit tests for the agent client module
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { queryAgentProcesses, checkAgentHealth, getAgentMetrics, getProcessList } from './client';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { queryAgentProcesses, checkAgentHealth, getAgentMetrics, getProcessList, getAgentBaseUrl } from './client';
 
 // Mock fetch for testing
 const mockFetch = (response: any, status: number = 200) => {
@@ -161,13 +161,13 @@ describe('Agent Client', () => {
   describe('getAgentBaseUrl', () => {
     it('should use default URL when env is not set', () => {
       delete process.env.SPARKRUN_AGENT_URL;
-      const baseUrl = (require('./client') as any).getAgentBaseUrl();
+      const baseUrl = getAgentBaseUrl();
       expect(baseUrl).toBe('http://127.0.0.1:8081');
     });
 
     it('should use environment variable when set', () => {
       process.env.SPARKRUN_AGENT_URL = 'http://localhost:9999';
-      const baseUrl = (require('./client') as any).getAgentBaseUrl();
+      const baseUrl = getAgentBaseUrl();
       expect(baseUrl).toBe('http://localhost:9999');
     });
   });

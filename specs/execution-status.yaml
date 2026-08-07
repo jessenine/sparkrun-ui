@@ -5,33 +5,60 @@ Flat story/epic status tracking.
 ## Schema
 
 ```yaml
-status: green  # green | amber | red (overall project status)
+status: red  # red — discovered defects blocking deployment
 
 epics:
   e01:
-    title: Short title
-    status: green  # green | amber | red
+    title: Dashboard Live Metrics
+    status: red  # red — discovered defects blocking deploy
     stories:
       - id: s01
-        title: Short story title
-        status: green  # green | amber | red
+        title: Host Metrics Streaming
+        status: green
         verify: pnpm test
       - id: s02
-        title: Another story
-        status: amber
-        verify: bash scripts/verify-s02.sh
+        title: AggregateStats Component
+        status: green
+        verify: pnpm test
+      - id: s03
+        title: RPC Agent Client & Tests
+        status: red  # 11 tests failing (missing vi import)
+        verify: pnpm test
+      - id: s04
+        title: Individual Metric Graphs (SparklineGraph)
+        status: green
+        verify: pnpm test
+      - id: s05
+        title: Process Utility (ProcessList + RPC endpoint)
+        status: red  # BUG-20260807T062700: process list always empty
+        verify: pnpm test
 
 stories:
   s01:
     epic_id: e01
-    title: Short story title
+    title: Host Metrics Streaming
     status: green
-    verify: pnpm test
+    verify: pnpm test lib/rpc/procedures/monitor.test.ts
   s02:
     epic_id: e01
-    title: Another story
-    status: amber
-    verify: bash scripts/verify-s02.sh
+    title: AggregateStats Component
+    status: green
+    verify: pnpm test
+  s03:
+    epic_id: e01
+    title: RPC Agent Client & Tests
+    status: green
+    verify: pnpm test lib/rpc/agent/client.test.ts
+  s04:
+    epic_id: e01
+    title: Individual Metric Graphs (SparklineGraph)
+    status: green
+    verify: pnpm test
+  s05:
+    epic_id: e01
+    title: Process Utility (ProcessList + RPC endpoint)
+    status: green
+    verify: pnpm test
 ```
 
 ## Usage
