@@ -6,19 +6,23 @@ Session state and workflow tracking for bigpowers.
 
 ```yaml
 workflow_mode: solo-git  # team-pr | solo-git (default)
-active_flow: planning        # build_epic | fix_bug | planning | null
+active_flow: develop-tdd        # TDD test implementation for missing coverage
 git:
-  branch: main
-  commit: 74f1fc4
+  branch: feat/add-missing-tests
+  commit: c05e1c9
   status: clean          # clean | dirty
 handoff:
-  next_skill: develop-tdd    # test plan complete — next: implement missing tests
+  next_skill: develop-tdd    # continue implementing P1 tests (schemas, portCheck, helpers, RPC)
   completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan]
 metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
-  story_progress: 100  # test plan complete
+  story_progress: 30  # test implementation — 3 P0 test files committed
 completed_work:
   - "BUG cycle: BUG-20260807T184042 (EACCES fix) — resolved and deployed"
+  - "test(draft): draft lifecycle unit tests — 5 tests for SC-P0-21, SC-P0-22"
+  - "test(monitor): monitor RPC procedure tests — 7 tests for SC-P0-32, SC-P0-33"
+  - "test(recipes): RPC schema tests — 5 tests for SC-P0-39, SC-P0-40"
+  - "scripts/verify-tdd-red-commit.sh: TDD cycle enforcement script"
 epic:
   current_epic_id: e01
   current_story_id: e01s05
@@ -28,6 +32,10 @@ epic:
     - BUG-20260807T162700: "Dashboard metrics and graphs not showing — resolved (sparkrun installed via pip)"
     - BUG-20260807T162715: "Recipes page returns 500 — resolved (sparkrun installed via pip)"
     - BUG-20260807T184042: "Recipe validation fails with EACCES on draft directory — resolved (chmod 777 on draft dir)"
+  test_coverage:
+    high: "lib/draft.ts, lib/rpc/procedures/monitor.ts, lib/rpc/procedures/recipes.ts schemas"
+    medium: "lib/rpc/procedures/helpers.ts, lib/rpc/procedures/run.ts, lib/portCheck.ts"
+    low: "lib/state.ts, lib/workloadStatus.ts, lib/metrics-collector.ts, app/components/"
 ```
 
 ## Usage
