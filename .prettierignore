@@ -10,3 +10,11 @@ app/icon.svg
 app/apple-icon.svg
 lib/__fixtures__
 *.md
+
+# Generated / tool-state files (not hand-formatted)
+server.js
+.project-state.json
+# Rust build artifacts (machine-generated)
+agent/sparkrun-local-agent/target/
+# bigpowers YAML planning docs (embed code fences; not prettier-parsable)
+specs/**/*.yaml

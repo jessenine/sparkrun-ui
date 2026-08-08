@@ -195,7 +195,10 @@ export function LaunchWizard({
         const iter = await rpc.status.stream({ intervalMs: 1500 }, { signal: ac.signal });
         for await (const next of iter) {
           if (cancelled) break;
-          const match = next.solo_entries.find((w: any) => w.meta.recipe?.includes(draftId));
+          const match = next.solo_entries.find(
+            (w: { meta: { recipe?: string }; cluster_id: string }) =>
+              w.meta.recipe?.includes(draftId),
+          );
           if (match) {
             setLaunchedClusterId(match.cluster_id);
             break;

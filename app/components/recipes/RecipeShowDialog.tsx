@@ -43,12 +43,12 @@ export function RecipeShowDialog({
     setError(null);
     rpc.recipes
       .show({ name })
-      .then((r: any) => {
+      .then((r: { text: string }) => {
         if (cancelled) return;
         cache.set(name, r.text);
         setText(r.text);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : String(err));
       })

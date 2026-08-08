@@ -15,23 +15,28 @@ export type Job = z.infer<typeof JobSchema>;
 export async function POST(request: NextRequest) {
   try {
     const cachedStatus = getClusterStatus();
-    
+
     if (!cachedStatus) {
       return NextResponse.json({
         jobs: [],
         source: "cached",
         stale: true,
-        message: "No cluster status available yet. Wait a moment and try again."
+        message: "No cluster status available yet. Wait a moment and try again.",
       });
     }
-    
+
     // Validate the cached status
     const validatedStatus = ClusterStatusSchema.parse(cachedStatus);
-    
+
     // Map both groups (record) and solo_entries (array) to job format
     const jobs: Job[] = [
       ...Object.entries(validatedStatus.groups ?? {}).map(([clusterId, group]) => {
-        const g = group as { cluster_id?: string; meta?: { recipe?: string; port?: number }; hosts?: string[]; containers?: { status?: string }[] };
+        const g = group as {
+          cluster_id?: string;
+          meta?: { recipe?: string; port?: number };
+          hosts?: string[];
+          containers?: { status?: string }[];
+        };
         return {
           cluster_id: clusterId,
           recipe: g.meta?.recipe,
@@ -48,18 +53,15 @@ export async function POST(request: NextRequest) {
         status: entry.status,
       })),
     ].filter((job) => job.cluster_id);
-    
+
     return NextResponse.json({
       jobs: jobs,
       source: "cached",
       stale: false,
-      lastUpdate: new Date().toISOString()
+      lastUpdate: new Date().toISOString(),
     });
   } catch (err) {
     console.error("[api/jobs/error]", err);
-    return NextResponse.json(
-      { error: "Failed to fetch jobs" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch jobs" }, { status: 500 });
   }
 }

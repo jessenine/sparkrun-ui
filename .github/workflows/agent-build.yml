@@ -4,10 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - 'agent/sparkrun-local-agent/**'
+      - "agent/sparkrun-local-agent/**"
   pull_request:
     paths:
-      - 'agent/sparkrun-local-agent/**'
+      - "agent/sparkrun-local-agent/**"
   workflow_dispatch:
 
 concurrency:
@@ -82,29 +82,29 @@ jobs:
           script: |
             # Stop the agent
             sudo systemctl stop sparkrun-local-agent || true
-            
+
             # Backup current binary
             sudo cp /usr/local/bin/sparkrun-local-agent /usr/local/bin/sparkrun-local-agent.bak.$(date +%s) 2>/dev/null || true
-            
+
             # Install new binary
             cat > /tmp/sparkrun-local-agent
             sudo mv /tmp/sparkrun-local-agent /usr/local/bin/sparkrun-local-agent
             sudo chmod +x /usr/local/bin/sparkrun-local-agent
             sudo chown root:root /usr/local/bin/sparkrun-local-agent
-            
+
             # Restart agent
             sudo systemctl daemon-reload
             sudo systemctl start sparkrun-local-agent
-            
+
             # Wait for it to start
             sleep 3
-            
+
             # Verify
             echo "=== Service Status ==="
             sudo systemctl status sparkrun-local-agent --no-pager
             echo "=== Port Binding ==="
             ss -tlnp | grep 8081 || echo "Port 8081 not bound"
-            
+
             # Test endpoint
             echo "=== Health Check ==="
             curl -s http://127.0.0.1:8081/health || echo "Health check failed"

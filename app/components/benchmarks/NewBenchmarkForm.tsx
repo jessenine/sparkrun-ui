@@ -190,7 +190,7 @@ export function NewBenchmarkForm({
     let cancelled = false;
     rpc.recipes
       .info({ name: recipe })
-      .then((r: any) => {
+      .then((r: { vram?: { max_model_len?: number | null } | null }) => {
         if (!cancelled) setRecipeInfo({ recipe, maxModelLen: r.vram?.max_model_len ?? null });
       })
       .catch(() => {

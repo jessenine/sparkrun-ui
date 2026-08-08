@@ -71,6 +71,21 @@ type ProcessInfo = {
   status: string;
 };
 
+/** Parse NDJSON text (one JSON object per line) into an array of objects. */
+export function parseMetricNdjson(text: string): unknown[] {
+  const out: unknown[] = [];
+  const lines = text.trim().split("\n");
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      out.push(JSON.parse(line));
+    } catch {
+      // Skip non-JSON lines
+    }
+  }
+  return out;
+}
+
 // Cache with TTL
 class Cache<T> {
   private value: T | null = null;
@@ -111,31 +126,20 @@ export async function collectMetrics(): Promise<void> {
 
   isCollecting = true;
   try {
-    
     // Collect monitor metrics using runSparkrunText with timeout
     // The output is NDJSON - one JSON object per line for each snapshot
     let monitorResult: MonitorMetrics[] = [];
     try {
-      const result = await runSparkrunText(
-        ["cluster", "monitor", "--json", "--interval", "1"],
-        { timeoutMs: 3000 },
-      );
-      
+      const result = await runSparkrunText(["cluster", "monitor", "--json", "--interval", "1"], {
+        timeoutMs: 3000,
+      });
+
       // Parse NDJSON output (multiple JSON objects, one per line)
-      const lines = result.stdout.trim().split("\n");
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const obj = JSON.parse(line) as MonitorMetrics;
-          monitorResult.push(obj);
-        } catch {
-          // Skip non-JSON lines
-        }
-      }
-    } catch (err: any) {
+      monitorResult = parseMetricNdjson(result.stdout) as MonitorMetrics[];
+    } catch {
       // Silently continue on error
     }
-    
+
     if (monitorResult.length > 0) {
       monitorCache.set(monitorResult);
     }

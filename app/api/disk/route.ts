@@ -17,7 +17,7 @@ const DiskUsageSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const diskInfo = await getDiskUsage();
-    
+
     return NextResponse.json({
       results: diskInfo,
       source: "direct",
@@ -26,10 +26,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error("[api/disk/error]", err);
-    return NextResponse.json(
-      { results: [], error: "Failed to fetch disk usage" },
-      { status: 500 }
-    );
+    return NextResponse.json({ results: [], error: "Failed to fetch disk usage" }, { status: 500 });
   }
 }
 

@@ -6,19 +6,54 @@ Session state and workflow tracking for bigpowers.
 
 ```yaml
 workflow_mode: solo-git  # team-pr | solo-git (default)
-active_flow: planning        # build_epic | fix_bug | planning | null
+active_flow: build-epic   # merge deferred; continuing Phase 7-8 to close gates
+# DECISION (2026-08-07): user declined merge at ~41% coverage. Continue component tests + lib coverage toward 80% gate, then add security REVIEW + traceability matrix before any merge.
 git:
-  branch: main
-  commit: 74f1fc4
+  branch: feat/add-missing-tests
+  commit: 241d3ad
   status: clean          # clean | dirty
+  origin: "https://github.com/jessenine/sparkrun-ui.git (origin/main ahead 1 unpushed: 838e5ab EACCES fix)"
 handoff:
-  next_skill: develop-tdd    # test plan complete — next: implement missing tests
-  completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan]
+  next_skill: develop-tdd    # merge deferred; raising coverage + adding security/traceability gates
+  completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan, release-branch]
 metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
-  story_progress: 100  # test plan complete
+  story_progress: 100  # overall coverage 80.07% stmts (from 18.5%), 355 tests passing, 38 commits ahead
+  tests: 355 # passing; 5 skipped (compat)
+  components_coverage: "80.07% statements overall (from 12.7%)"
+outstanding_work:
+  - "heavy components: LaunchWizard, NewBenchmarkForm, DashboardLive, BenchmarkCharts (recharts), RecipeInfoPopover, RecipeShowDialog/YamlEditor (CodeMirror)"
+  - "E2E (Playwright) — test plan Phase 8, not yet started"
+  - "raise overall coverage (currently ~41% statements) toward 80% gate"
+  - "git push origin main (unpushed: EACCES fix 838e5ab)"
+release_gates:
+  passed:
+    - "213 tests pass, 5 skipped (compat)"
+    - "tsc --noEmit clean"
+    - "lint clean on changed files"
+    - "26 commits ahead of main, all Conventional Commits"
+    - "no Co-authored-by / AI attribution"
+  unmet:
+    - "no specs/security/REVIEW.md"
+    - "no traceability matrix (gate-trace)"
 completed_work:
+  - "component test infra: @testing-library/react+user-event+jest-dom, jsdom, app/test/setup.ts (next/image, next/link, next/navigation, scrollIntoView mocks), vitest coverage for app/"
+  - "component tests: AggregateStats, ProcessList, SparklineGraph, WorkloadCard, UpdateSparkrunButton, DashboardLive-children, HeaderStats, MonitorLive, HostCard, LogStream, RecipesBrowser, BenchmarksList, BenchmarkDetail, Shell, ChatPage, launch (IssueList/OverridesForm/LaunchProgressDialog), ui primitives"
   - "BUG cycle: BUG-20260807T184042 (EACCES fix) — resolved and deployed"
+  - "test(draft): draft lifecycle — SC-P0-21, SC-P0-22"
+  - "test(monitor): monitor RPC — SC-P0-32, SC-P0-33"
+  - "test(recipes): RPC schemas — SC-P0-39, SC-P0-40"
+  - "test(status): mapStatusToJobs — SC-P0-34 (RED/GREEN)"
+  - "test(helpers): resolveTargetHosts"
+  - "test(run): buildRunArgs — SC-P0-47 (RED/GREEN)"
+  - "test(portCheck): probePort/probePortsParallel — SC-P1-29, SC-P1-30"
+  - "test(workloadStatus): parseWorkloadUptime"
+  - "test(state): isTerminalStatus/deriveStatus"
+  - "test(metrics-collector): parseMetricNdjson (RED/GREEN)"
+  - "test(disk): parseDfOutput (RED/GREEN)"
+  - "scripts/verify-tdd-red-commit.sh: TDD cycle enforcement script"
+  - "test batch: AnimatedBackground (98%), BenchmarkCharts (84%), RecipeShowDialog (90%), RecipeInfoPopover (88%), Textarea, YamlEditor (86%) — pushed coverage to 77%"
+  - "REACHED 80% STATEMENTS GATE: 80.07% (2226/2780), lines 83.07%, 355 passed / 5 skipped, typecheck clean"
 epic:
   current_epic_id: e01
   current_story_id: e01s05
@@ -28,6 +63,10 @@ epic:
     - BUG-20260807T162700: "Dashboard metrics and graphs not showing — resolved (sparkrun installed via pip)"
     - BUG-20260807T162715: "Recipes page returns 500 — resolved (sparkrun installed via pip)"
     - BUG-20260807T184042: "Recipe validation fails with EACCES on draft directory — resolved (chmod 777 on draft dir)"
+  test_coverage:
+    high: "lib/draft.ts, lib/rpc/procedures/monitor.ts, lib/rpc/procedures/recipes.ts schemas"
+    medium: "lib/rpc/procedures/helpers.ts, lib/rpc/procedures/run.ts, lib/portCheck.ts"
+    low: "lib/state.ts, lib/workloadStatus.ts, lib/metrics-collector.ts, app/components/"
 ```
 
 ## Usage
