@@ -71,6 +71,21 @@ type ProcessInfo = {
   status: string;
 };
 
+/** Parse NDJSON text (one JSON object per line) into an array of objects. */
+export function parseMetricNdjson(text: string): unknown[] {
+  const out: unknown[] = [];
+  const lines = text.trim().split("\n");
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    try {
+      out.push(JSON.parse(line));
+    } catch {
+      // Skip non-JSON lines
+    }
+  }
+  return out;
+}
+
 // Cache with TTL
 class Cache<T> {
   private value: T | null = null;
@@ -122,16 +137,7 @@ export async function collectMetrics(): Promise<void> {
       );
       
       // Parse NDJSON output (multiple JSON objects, one per line)
-      const lines = result.stdout.trim().split("\n");
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        try {
-          const obj = JSON.parse(line) as MonitorMetrics;
-          monitorResult.push(obj);
-        } catch {
-          // Skip non-JSON lines
-        }
-      }
+      monitorResult = parseMetricNdjson(result.stdout) as MonitorMetrics[];
     } catch (err: any) {
       // Silently continue on error
     }
