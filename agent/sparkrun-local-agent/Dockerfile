@@ -22,11 +22,9 @@ RUN apt-get update \
 
 # Layer the manifest first so dependency compilation is cached across builds.
 COPY Cargo.toml Cargo.lock ./
-# Warm the dependency cache with a stub crate before the real source lands.
-RUN mkdir -p src && printf 'fn main() {}\n' > src/main.rs && printf '' > src/lib.rs \
-  && cargo build --release || true
 
-# Copy the real source and do the final build.
+# Copy the real source and build. (No stub-cache step here: a stub src/ causes
+# Docker/Cargo to skip the real rebuild and ship an empty binary.)
 COPY src ./src
 RUN cargo build --release \
   && cp target/release/sparkrun-local-agent /agent/sparkrun-local-agent \
