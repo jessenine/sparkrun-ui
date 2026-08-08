@@ -57,59 +57,33 @@ jobs:
           path: dist/sparkrun-local-agent
           retention-days: 7
 
-  deploy:
-    name: Deploy to cluster node
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: sparkrun-local-agent-arm64
-          path: dist
-
-      - name: Deploy to cluster node
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.AGENT_CLUSTER_HOST || '192.168.1.22' }}
-          username: ${{ secrets.AGENT_CLUSTER_USER || 'jix' }}
-          key: ${{ secrets.AGENT_SSH_KEY }}
-          script: |
-            # Stop the agent
-            sudo systemctl stop sparkrun-local-agent || true
-
-            # Backup current binary
-            sudo cp /usr/local/bin/sparkrun-local-agent /usr/local/bin/sparkrun-local-agent.bak.$(date +%s) 2>/dev/null || true
-
-            # Install new binary
-            cat > /tmp/sparkrun-local-agent
-            sudo mv /tmp/sparkrun-local-agent /usr/local/bin/sparkrun-local-agent
-            sudo chmod +x /usr/local/bin/sparkrun-local-agent
-            sudo chown root:root /usr/local/bin/sparkrun-local-agent
-
-            # Restart agent
-            sudo systemctl daemon-reload
-            sudo systemctl start sparkrun-local-agent
-
-            # Wait for it to start
-            sleep 3
-
-            # Verify
-            echo "=== Service Status ==="
-            sudo systemctl status sparkrun-local-agent --no-pager
-            echo "=== Port Binding ==="
-            ss -tlnp | grep 8081 || echo "Port 8081 not bound"
-
-            # Test endpoint
-            echo "=== Health Check ==="
-            curl -s http://127.0.0.1:8081/health || echo "Health check failed"
-
-      - name: Verify deployment
-        run: |
-          sleep 5
-          curl -s "http://${{ secrets.AGENT_CLUSTER_HOST || '192.168.1.22' }}:8081/health" | jq .
+# DEPLOY job intentionally REMOVED (2026-08-08).
+#
+# The hosted-runner deploy job was not feasible and reddened main on every
+# agent-path push:
+#   1. GitHub-hosted runners cannot reach the private LAN IP (192.168.1.22) —
+#      the SSH connection from the runner to the node always times out.
+#   2. appleboy/ssh-action does not transfer files, so `cat > /tmp/...` wrote an
+#      EMPTY binary (and it stopped the service first = took the agent offline).
+#   3. jix has no NOPASSWORD sudo; the script needs a TTY & password, which a
+#      hosted runner cannot provide.
+#
+# The `build` job above remains as an ARM64 compile gate and uploads the
+# verified artifact `sparkrun-local-agent-arm64`. Deployment is manual:
+#
+#   Build once natively on an ARM node (has docker, no cross-toolchain needed):
+#     tar -czf /tmp/agent-src.tgz Cargo.toml Cargo.lock src Dockerfile
+#     -> copy to ARM node ->  docker build -t sparkrun-local-agent .
+#     docker run --rm sparkrun-local-agent cat /usr/local/bin/sparkrun-local-agent >/tmp/a
+#     -> copy /tmp/a to each target node as /tmp/sparkrun-local-agent.fixed ->
+#   Per node (jix, needs sudo password interactively):
+#     sudo systemctl stop sparkrun-local-agent
+#     sudo cp /usr/local/bin/sparkrun-local-agent /usr/local/bin/sparkrun-local-agent.bak.$(date +%s)
+#     sudo mv /tmp/sparkrun-local-agent.fixed /usr/local/bin/sparkrun-local-agent
+#     sudo chmod +x /usr/local/bin/sparkrun-local-agent && sudo chown root:root /usr/local/bin/sparkrun-local-agent
+#     sudo systemctl start sparkrun-local-agent
+#   Verify: curl -s http://<node>:8081/processes   # expect hostname + ip_address
+#
+# If true self-service CD is ever wanted, the honest route is a SELF-HOSTED
+# GitHub runner on the LAN (plus NOPASSWORD sudo for the exact commands), not a
+# hosted runner. Draft that workflow when the infra exists.
