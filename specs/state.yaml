@@ -9,22 +9,27 @@ workflow_mode: solo-git  # team-pr | solo-git (default)
 active_flow: develop-tdd        # TDD test implementation for missing coverage
 git:
   branch: feat/add-missing-tests
-  commit: b97e352
+  commit: 3d58fa0
   status: clean          # clean | dirty
 handoff:
-  next_skill: develop-tdd    # continue: portCheck, metrics-collector, workloadStatus, components
+  next_skill: develop-tdd    # optional: component tests, E2E (Phase 7-8); core lib coverage done
   completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan]
 metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
-  story_progress: 55  # P0 RPC logic coverage largely complete (status/helpers/run)
+  story_progress: 85  # core lib pure-logic coverage complete (136 tests)
 completed_work:
   - "BUG cycle: BUG-20260807T184042 (EACCES fix) — resolved and deployed"
-  - "test(draft): draft lifecycle unit tests — 5 tests for SC-P0-21, SC-P0-22"
-  - "test(monitor): monitor RPC procedure tests — for SC-P0-32, SC-P0-33"
-  - "test(recipes): RPC schema tests — for SC-P0-39, SC-P0-40"
-  - "test(status): mapStatusToJobs extraction + tests — SC-P0-34 (RED/GREEN)"
-  - "test(helpers): resolveTargetHosts tests (explicit/cluster/default/missing)"
-  - "test(run): buildRunArgs extraction + tests — SC-P0-47 (RED/GREEN)"
+  - "test(draft): draft lifecycle — SC-P0-21, SC-P0-22"
+  - "test(monitor): monitor RPC — SC-P0-32, SC-P0-33"
+  - "test(recipes): RPC schemas — SC-P0-39, SC-P0-40"
+  - "test(status): mapStatusToJobs — SC-P0-34 (RED/GREEN)"
+  - "test(helpers): resolveTargetHosts"
+  - "test(run): buildRunArgs — SC-P0-47 (RED/GREEN)"
+  - "test(portCheck): probePort/probePortsParallel — SC-P1-29, SC-P1-30"
+  - "test(workloadStatus): parseWorkloadUptime"
+  - "test(state): isTerminalStatus/deriveStatus"
+  - "test(metrics-collector): parseMetricNdjson (RED/GREEN)"
+  - "test(disk): parseDfOutput (RED/GREEN)"
   - "scripts/verify-tdd-red-commit.sh: TDD cycle enforcement script"
 epic:
   current_epic_id: e01
