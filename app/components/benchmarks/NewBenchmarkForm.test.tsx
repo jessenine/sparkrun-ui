@@ -82,8 +82,26 @@ vi.mock("@/app/components/ui/Switch", () => ({
 }));
 
 const recipes = [
-  { name: "official/qwen", file: "official/qwen.yaml", runtime: "vllm", model: "qwen2.5" },
-  { name: "official/llama", file: "official/llama.yaml", runtime: "vllm", model: "llama3" },
+  {
+    name: "official/qwen",
+    file: "official/qwen.yaml",
+    path: "official/qwen.yaml",
+    runtime: "vllm",
+    model: "qwen2.5",
+    description: "Qwen 2.5",
+    min_nodes: 1,
+    registry: "default",
+  },
+  {
+    name: "official/llama",
+    file: "official/llama.yaml",
+    path: "official/llama.yaml",
+    runtime: "vllm",
+    model: "llama3",
+    description: "Llama 3",
+    min_nodes: 1,
+    registry: "default",
+  },
 ];
 const clusters = [{ name: "lab", is_default: true, hosts: ["10.0.0.1"] }];
 const profiles = [{ name: "smoke", registry: "reg", framework: "vllm" }];

@@ -30,29 +30,32 @@ vi.mock("@codemirror/state", () => ({
   },
 }));
 
-vi.mock("@codemirror/view", () => ({
-  EditorView: class {
+vi.mock("@codemirror/view", () => {
+  class MockEditorView {
     static updateListener = { of: (cb: unknown) => ["ul", cb] };
     static theme = () => "theme";
     state: unknown;
+    dispatchCalls: unknown[] = [];
+    destroyed = false;
     constructor({ state }: { state: unknown }) {
       this.state = state;
-      this.dispatchCalls = [];
-      this.destroyed = false;
       createdViews.push(this);
     }
     dispatch(tr: unknown) {
-      (this as unknown as { dispatchCalls: unknown[] }).dispatchCalls.push(tr);
+      this.dispatchCalls.push(tr);
     }
     destroy() {
-      (this as unknown as { destroyed: boolean }).destroyed = true;
+      this.destroyed = true;
     }
-  },
-  keymap: { of: () => "km" },
-  lineNumbers: () => "ln",
-  highlightActiveLine: () => "hal",
-  drawSelection: () => "ds",
-}));
+  }
+  return {
+    EditorView: MockEditorView,
+    keymap: { of: () => "km" },
+    lineNumbers: () => "ln",
+    highlightActiveLine: () => "hal",
+    drawSelection: () => "ds",
+  };
+});
 
 vi.mock("@codemirror/lang-yaml", () => ({ yaml: () => "yaml" }));
 vi.mock("@codemirror/commands", () => ({

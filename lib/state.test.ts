@@ -272,8 +272,8 @@ describe("watchBenchmarkFiles", () => {
     mocks.stat.mockResolvedValue({ mtimeMs: 1 });
     const ac = new AbortController();
     const gen = watchBenchmarkFiles("bench_x", { signal: ac.signal, intervalMs: 10 });
-    const first = (await gen.next()).value as State;
-    expect(first.state?.benchmark_id).toBe("bench_x");
+    const { value: first } = await gen.next();
+    expect(first?.state?.benchmark_id).toBe("bench_x");
     ac.abort();
     const done = await gen.next();
     expect(done.done).toBe(true);

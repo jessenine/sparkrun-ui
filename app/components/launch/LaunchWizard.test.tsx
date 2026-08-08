@@ -119,10 +119,13 @@ function stream<T>(events: T[]): AsyncGenerator<T> {
 const recipes = [
   {
     name: "official/qwen",
+    file: "official/qwen.yaml",
+    path: "official/qwen.yaml",
     runtime: "vllm",
     model: "qwen2.5",
     description: "Qwen 2.5",
     min_nodes: 1,
+    registry: "default",
   },
 ];
 const clusters = [{ name: "lab", is_default: true, hosts: ["10.0.0.1"] }];

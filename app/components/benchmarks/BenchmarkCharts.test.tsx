@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { BenchmarkCharts } from "./BenchmarkCharts";
-import type { Consolidated } from "@/lib/state";
+import type { Consolidated, ConsolidatedMetric, ConsolidatedRow } from "@/lib/state";
 
 vi.mock("recharts", () => {
   const Box = ({ children }: { children?: React.ReactNode }) => <div>{children}</div>;
@@ -20,19 +20,25 @@ vi.mock("recharts", () => {
   };
 });
 
-const row = {
+const m = (mean: number, std: number): ConsolidatedMetric => ({ mean, std, values: [mean] });
+
+const row: ConsolidatedRow = {
   context_size: 2048,
   concurrency: 1,
   prompt_size: 100,
   response_size: 50,
-  tg_throughput: { mean: 120, std: 5 },
-  pp_throughput: { mean: 10.5, std: 0.2 },
-  peak_throughput: { mean: 900, std: 3 },
-  ttfr: { mean: 250.4, std: 0 },
-  est_ppt: { mean: 5, std: 0 },
+  tg_throughput: m(120, 5),
+  pp_throughput: m(10.5, 0.2),
+  peak_throughput: m(900, 3),
+  ttfr: m(250.4, 0),
+  est_ppt: m(5, 0),
 };
 
-const consolidated: Consolidated = { benchmarks: [row] };
+const consolidated: Consolidated = {
+  model: "qwen",
+  max_concurrency: 4,
+  benchmarks: [row],
+};
 
 describe("BenchmarkCharts", () => {
   it("shows an empty message when there are no consolidated metrics", () => {
@@ -41,7 +47,7 @@ describe("BenchmarkCharts", () => {
   });
 
   it("shows the empty message when the benchmark list is empty", () => {
-    render(<BenchmarkCharts consolidated={{ benchmarks: [] }} />);
+    render(<BenchmarkCharts consolidated={{ model: "", max_concurrency: 0, benchmarks: [] }} />);
     expect(screen.getByText("No consolidated metrics yet.")).toBeInTheDocument();
   });
 
@@ -62,6 +68,8 @@ describe("BenchmarkCharts", () => {
 
   it("formats a zero context size as 'No context' in card titles and cells", () => {
     const c: Consolidated = {
+      model: "qwen",
+      max_concurrency: 4,
       benchmarks: [{ ...row, context_size: 0 }],
     };
     render(<BenchmarkCharts consolidated={c} />);
@@ -70,7 +78,7 @@ describe("BenchmarkCharts", () => {
   });
 
   it("renders em-dashes for missing metric cells", () => {
-    const missing = {
+    const missing: ConsolidatedRow = {
       context_size: 512,
       concurrency: 2,
       prompt_size: 10,
@@ -81,7 +89,11 @@ describe("BenchmarkCharts", () => {
       ttfr: undefined,
       est_ppt: undefined,
     };
-    render(<BenchmarkCharts consolidated={{ benchmarks: [missing] }} />);
+    render(
+      <BenchmarkCharts
+        consolidated={{ model: "qwen", max_concurrency: 4, benchmarks: [missing] }}
+      />,
+    );
     // Five metrics missing → five dash cells
     expect(screen.getAllByText("—").length).toBe(5);
   });
