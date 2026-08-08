@@ -68,6 +68,10 @@ export function DashboardLive({
 
   // Process history per host: hostIp -> [ProcessEntry]
   const [processHistory, setProcessHistory] = useState<Record<string, ProcessEntry[]>>({});
+  // Identity of the machine the local agent (process fallback) is running on.
+  const [agentIdentity, setAgentIdentity] = useState<{ hostname?: string; ip_address?: string }>(
+    {},
+  );
 
   // Track if process data has been loaded at least once
   const [monitorLoaded, setMonitorLoaded] = useState(false);
@@ -199,6 +203,12 @@ export function DashboardLive({
               gpu_temp_c: [0],
             };
           }
+        }
+
+        // Capture the local agent identity (hostname/ip) when the process
+        // fallback surfaced it, so the UI can show which machine is reporting.
+        if (result?.hostname || result?.ip_address) {
+          setAgentIdentity({ hostname: result.hostname, ip_address: result.ip_address });
         }
       } catch (error) {
         console.warn("[dashboard] RPC processes failed:", error);
@@ -342,6 +352,12 @@ export function DashboardLive({
               ({Object.keys(processHistory).length} hosts)
             </span>
           </h2>
+          {agentIdentity.hostname && (
+            <div className="mb-2 text-xs text-zinc-500">
+              Local agent: <span className="font-mono">{agentIdentity.hostname}</span>
+              {agentIdentity.ip_address && <> ({agentIdentity.ip_address})</>}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4">
             {Object.entries(processHistory).map(([hostIp, processes]) => (
               <Card key={hostIp}>

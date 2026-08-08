@@ -224,4 +224,25 @@ describe("DashboardLive", () => {
     // Should not throw; the catch block just warns and keeps the loading state.
     expect(screen.getByText("Loading metrics...")).toBeInTheDocument();
   });
+
+  it("shows the local agent hostname and ip when the process RPC returns them", async () => {
+    monitorProcesses.mockResolvedValue({
+      processes: [{ pid: 1, name: "systemd", cpu_pct: 2.1 }],
+      hostname: "pidev9",
+      ip_address: "192.168.1.174",
+    });
+    render(
+      <DashboardLive
+        initial={makeInitial({
+          groups: { g1: { meta: { hosts: ["10.0.0.1"] } } },
+        })}
+        recipeByCluster={recipeByCluster}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText(/Local agent/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/pidev9/)).toBeInTheDocument();
+    expect(screen.getByText(/192\.168\.1\.174/)).toBeInTheDocument();
+  });
 });

@@ -6,9 +6,20 @@
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 use tracing::{info, error};
 use uuid::Uuid;
+use sparkrun_local_agent::{compute_cpu_percent, compute_mem_percent, get_local_ip};
+
+// Process CPU sampling state: previous consumed CPU ticks per PID, the kernel
+// clock-tick rate (typically 100 Hz on Linux), and the wall-clock instant of the
+// previous collection used as the CPU% time denominator.
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::Instant;
+const CLK_TCK: f32 = 100.0;
+static PREV_CPU_TICKS: OnceLock<Mutex<HashMap<u32, u64>>> = OnceLock::new();
+static LAST_COLLECT: Mutex<Option<Instant>> = Mutex::new(None);
 
 #[derive(Parser, Debug)]
 #[command(name = "sparkrun-local-agent")]
@@ -50,6 +61,7 @@ struct ProcessList {
     processes: Vec<ProcessEntry>,
     agent_id: String,
     hostname: String,
+    ip_address: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -76,19 +88,41 @@ async fn collect_processes(max_count: usize) -> Result<ProcessList, CollectError
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
-    // Get hostname safely
+    // Get hostname and IP safely (identity surfaced for BUG-B)
     let hostname = get_hostname();
+    let ip_address = get_local_ip();
 
-    // Collect processes using sysinfo (safe API, no shell execution)
-    let mut processes = Vec::new();
-    
-    // Use a safe approach - read /proc directly or use sysinfo
-    // sysinfo crate provides safe wrappers around system calls
+    // Wall-clock time since the previous collection. This is the denominator
+    // that turns consumed-CPU-tick deltas into a real per-second percentage.
+    let elapsed_secs = {
+        let mut last = LAST_COLLECT.lock().unwrap();
+        let e = last.map(|l| l.elapsed().as_secs_f32()).unwrap_or(0.0);
+        *last = Some(Instant::now());
+        e
+    };
+    let total_mem = get_total_memory_bytes();
+
+    let mut processes: Vec<ProcessEntry> = Vec::new();
+
+    // Use a safe approach - read /proc directly (no shell execution)
     #[cfg(target_os = "linux")]
     {
-        // Read process info from /proc filesystem safely
-        if let Ok(proc_data) = read_proc_files() {
-            processes = proc_data;
+        if let Ok(samples) = read_proc_files() {
+            let mut prev = PREV_CPU_TICKS.get_or_init(|| Mutex::new(HashMap::new())).lock().unwrap();
+            for s in samples {
+                // First sighting of a PID: no delta available, treat as idle.
+                let prev_ticks = prev.get(&s.pid).copied().unwrap_or(s.cpu_ticks);
+                let cpu = compute_cpu_percent(prev_ticks, s.cpu_ticks, elapsed_secs, CLK_TCK);
+                let mem = compute_mem_percent(s.rss_bytes, total_mem);
+                prev.insert(s.pid, s.cpu_ticks);
+                processes.push(ProcessEntry {
+                    user: s.user,
+                    pid: s.pid,
+                    cpu,
+                    mem,
+                    command: s.comm,
+                });
+            }
         }
     }
 
@@ -101,99 +135,95 @@ async fn collect_processes(max_count: usize) -> Result<ProcessList, CollectError
         processes: top_processes,
         agent_id: Uuid::new_v4().to_string(),
         hostname,
+        ip_address,
     })
 }
 
-/// Read process information from /proc filesystem safely
+/// A raw snapshot of one process, before CPU/mem percentages are computed.
 #[cfg(target_os = "linux")]
-fn read_proc_files() -> Result<Vec<ProcessEntry>, CollectError> {
-    use std::fs;
-    use std::io::{BufRead, BufReader};
-    
-    let mut processes = Vec::new();
-    
-    // Read /proc/stat for system stats
-    if let Ok(content) = fs::read_to_string("/proc/stat") {
-        // Parse CPU stats if needed
-    }
-    
-    // Iterate through /proc to find process directories
-    // This is safe - we're just reading directories
-    if let Ok(entries) = fs::read_dir("/proc") {
-        for entry in entries.filter_map(|e| e.ok()) {
-            let name = entry.file_name();
-            let pid_str = name.to_string_lossy();
-            
-            // Check if this is a numeric directory (process)
-            if let Ok(pid) = pid_str.parse::<u32>() {
-                if let Some(proc_info) = read_single_process(pid) {
-                    processes.push(proc_info);
-                }
-            }
-        }
-    }
-    
-    Ok(processes)
+struct ProcSample {
+    pid: u32,
+    user: String,
+    comm: String,
+    rss_bytes: u64,
+    cpu_ticks: u64,
 }
 
-/// Read information for a single process from /proc
+/// Read raw process snapshots from the /proc filesystem safely (no shell).
 #[cfg(target_os = "linux")]
-fn read_single_process(pid: u32) -> Option<ProcessEntry> {
-    use std::fs;
-    use std::io::{BufRead, BufReader};
-    
-    // Read /proc/[pid]/stat for process stats (safe)
-    let stat_path = format!("/proc/{}/stat", pid);
-    if let Ok(content) = fs::read_to_string(&stat_path) {
-        let stat_line = content.trim();
-        
-        // Parse stat file safely
-        // Format: pid (comm) state ppid ...
-        if let Some(lparen) = stat_line.find('(') {
-            if let Some(rparen) = stat_line.rfind(')') {
-                let comm = &stat_line[lparen + 1..rparen];
-                
-                // Split the rest
-                let after_comm = &stat_line[rparen + 2..];
-                let parts: Vec<&str> = after_comm.split_whitespace().collect();
-                
-                if parts.len() >= 13 {
-                    // Parse CPU and memory info from /proc/[pid]/statm
-                    let statm_path = format!("/proc/{}/statm", pid);
-                    if let Ok(statm_content) = fs::read_to_string(&statm_path) {
-                        let statm_parts: Vec<&str> = statm_content.trim().split_whitespace().collect();
-                        
-                        if statm_parts.len() >= 2 {
-                            let vmsize: f32 = statm_parts[0].parse().unwrap_or(0.0);
-                            let rss: f32 = statm_parts[1].parse().unwrap_or(0.0);
-                            
-                            // Calculate CPU% (simplified - would need more complex calculation in production)
-                            // For now, use a safe approximation
-                            let cpu: f32 = 0.0; // Would need to track previous readings
-                            let mem: f32 = (rss * 4096.0 / 1_000_000.0).max(0.0); // MB approximation
-                            
-                            return Some(ProcessEntry {
-                                user: get_process_user(pid).unwrap_or_else(|_| "unknown".to_string()),
-                                pid,
-                                cpu,
-                                mem,
-                                command: comm.to_string(),
-                            });
-                        }
-                    }
+fn read_proc_files() -> Result<Vec<ProcSample>, CollectError> {
+    let mut samples = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir("/proc") {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let pid_str = entry.file_name().to_string_lossy().to_string();
+            if let Ok(pid) = pid_str.parse::<u32>() {
+                if let Some(sample) = read_proc_sample(pid) {
+                    samples.push(sample);
                 }
             }
         }
     }
-    
-    None
+
+    Ok(samples)
+}
+
+/// Read a raw snapshot for a single process: CPU ticks (utime+stime) from
+/// /proc/[pid]/stat and resident-set size from /proc/[pid]/statm.
+#[cfg(target_os = "linux")]
+fn read_proc_sample(pid: u32) -> Option<ProcSample> {
+    let stat = std::fs::read_to_string(format!("/proc/{}/stat", pid)).ok()?;
+    let statm = std::fs::read_to_string(format!("/proc/{}/statm", pid)).ok()?;
+
+    let lparen = stat.find('(')?;
+    let rparen = stat.rfind(')')?;
+    let comm = &stat[lparen + 1..rparen];
+    let after_comm = &stat[rparen + 2..];
+    let parts: Vec<&str> = after_comm.split_whitespace().collect();
+
+    // After `pid (comm)`: [state, ppid, pgrp, session, tty, tpgid, flags,
+    // minflt, cminflt, majflt, cmajflt, utime, stime, ...]
+    if parts.len() < 13 {
+        return None;
+    }
+    let utime: u64 = parts[11].parse().ok()?;
+    let stime: u64 = parts[12].parse().ok()?;
+
+    let statm_parts: Vec<&str> = statm.split_whitespace().collect();
+    if statm_parts.len() < 2 {
+        return None;
+    }
+    let rss_pages: u64 = statm_parts[1].parse().ok()?;
+
+    let user = get_process_user(pid).unwrap_or_else(|_| "unknown".to_string());
+    Some(ProcSample {
+        pid,
+        user,
+        comm: comm.to_string(),
+        rss_bytes: rss_pages * 4096,
+        cpu_ticks: utime + stime,
+    })
+}
+
+/// Read total system memory in bytes from /proc/meminfo (safe read).
+#[cfg(target_os = "linux")]
+fn get_total_memory_bytes() -> u64 {
+    if let Ok(content) = std::fs::read_to_string("/proc/meminfo") {
+        for line in content.lines() {
+            if let Some(rest) = line.strip_prefix("MemTotal:") {
+                if let Ok(kb) = rest.trim().split_whitespace().next().unwrap_or("").parse::<u64>() {
+                    return kb * 1024;
+                }
+            }
+        }
+    }
+    0
 }
 
 /// Get process owner (user) safely
 #[cfg(target_os = "linux")]
 fn get_process_user(pid: u32) -> Result<String, std::io::Error> {
     use std::fs;
-    use std::io::{BufRead, BufReader};
     
     let stat_path = format!("/proc/{}/stat", pid);
     if let Ok(content) = fs::read_to_string(&stat_path) {
@@ -341,6 +371,7 @@ async fn processes_handler(state: axum::extract::State<AgentState>) -> impl axum
                 processes: Vec::new(),
                 agent_id: state.agent_id.clone(),
                 hostname: get_hostname(),
+                ip_address: get_local_ip(),
             }
         });
     

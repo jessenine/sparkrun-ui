@@ -8,7 +8,11 @@ import type { ProcessEntry } from "./processes";
  * The agent runs on each host outside the Docker container and has proper
  * SSH/sparkrun access, unlike sparkrun inside the container.
  */
-async function fetchFromHostAgent(): Promise<ProcessEntry[] | null> {
+async function fetchFromHostAgent(): Promise<{
+  processes: ProcessEntry[];
+  hostname?: string;
+  ip_address?: string;
+} | null> {
   try {
     const url = new URL("http://127.0.0.1:8081/processes");
     const controller = new AbortController();
@@ -19,8 +23,16 @@ async function fetchFromHostAgent(): Promise<ProcessEntry[] | null> {
         console.warn("[monitor.processes] Host agent returned status", response.status);
         return null;
       }
-      const data = (await response.json()) as { processes?: ProcessEntry[] };
-      return data.processes ?? null;
+      const data = (await response.json()) as {
+        processes?: ProcessEntry[];
+        hostname?: string;
+        ip_address?: string;
+      };
+      return {
+        processes: data.processes ?? [],
+        hostname: data.hostname,
+        ip_address: data.ip_address,
+      };
     } finally {
       clearTimeout(timeout);
     }
@@ -82,18 +94,23 @@ export function normalizeMonitorOutput(raw: unknown): z.infer<typeof TickSchema>
 
   const hosts: Record<string, z.infer<typeof HostMetricsSchema>> = {};
 
+  // Skip hosts that are not running/returning metrics: those that errored
+  // (non-null error) or that returned an empty/missing metrics sample.
+  const isLiveSample = (s: unknown): s is Record<string, unknown> =>
+    !!s && typeof s === "object" && !Array.isArray(s) && Object.keys(s).length > 0;
+
   // Handle both array format [{ host, sample, ... }] and flat record format { "host": { ... } }
   if (Array.isArray(hostsInput)) {
     // Array format: [{ host, sample, ... }, ...]
     for (const h of hostsInput) {
       if (!h || typeof h !== "object") continue;
       const entry = h as Record<string, unknown>;
-      // Handle null/undefined samples gracefully - use an empty object instead of skipping
+      // Skip hosts that failed to be collected (not returning metrics)
+      if (entry.error != null && entry.error !== "") continue;
       const sampleRaw = entry.sample;
-      let sample =
-        sampleRaw !== null && sampleRaw !== undefined && typeof sampleRaw === "object"
-          ? (sampleRaw as Record<string, string | undefined | ProcessEntry[]>)
-          : ({} as Record<string, string | undefined | ProcessEntry[]>);
+      // Skip hosts that returned an empty/missing sample — no metrics to show
+      if (!isLiveSample(sampleRaw)) continue;
+      let sample = sampleRaw as Record<string, string | undefined | ProcessEntry[]>;
       // Parse processes array if present (either already an array or JSON string)
       if (sample.processes) {
         try {
@@ -112,7 +129,8 @@ export function normalizeMonitorOutput(raw: unknown): z.infer<typeof TickSchema>
   } else if (hostsInput && typeof hostsInput === "object" && !Array.isArray(hostsInput)) {
     // Flat record format: { "host": { ...metrics... } }
     for (const [hostKey, hostData] of Object.entries(hostsInput)) {
-      if (hostData && typeof hostData === "object") {
+      // Keep only hosts that are returning metrics (non-empty sample object)
+      if (isLiveSample(hostData)) {
         hosts[hostKey] = hostData as z.infer<typeof HostMetricsSchema>;
       }
     }
@@ -177,6 +195,8 @@ export const processes = os
   .output(
     z.object({
       timestamp: z.number(),
+      hostname: z.string().optional(),
+      ip_address: z.string().optional(),
       processes: z.array(
         z.object({
           user: z.string(),
@@ -243,17 +263,19 @@ export const processes = os
     if (!gotData) {
       console.warn("[monitor.processes] No process data from sparkrun monitor stream");
       // Fallback: try the host-local agent (runs outside container with proper SSH/sparkrun access)
-      const agentProcesses = await fetchFromHostAgent();
-      if (agentProcesses && agentProcesses.length > 0) {
+      const agentData = await fetchFromHostAgent();
+      if (agentData && agentData.processes.length > 0) {
         console.log(
           "[monitor.processes] Falling back to host agent —",
-          agentProcesses.length,
+          agentData.processes.length,
           "processes",
         );
-        const valid = agentProcesses.filter((p) => !isNaN(p.cpu) && !isNaN(p.mem));
+        const valid = agentData.processes.filter((p) => !isNaN(p.cpu) && !isNaN(p.mem));
         valid.sort((a, b) => b.cpu - a.cpu);
         return {
           timestamp: Date.now(),
+          hostname: agentData.hostname,
+          ip_address: agentData.ip_address,
           processes: valid.slice(0, 10),
         };
       }
