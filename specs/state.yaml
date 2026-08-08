@@ -6,17 +6,17 @@ Session state and workflow tracking for bigpowers.
 
 ```yaml
 workflow_mode: solo-git  # team-pr | solo-git (default)
-active_flow: null         # PR #2 + PR #3 merged; all bug work landed
-# STATUS (2026-08-08): PR #2 (coverage 80%) merged squash 6c39310; PR #3 (3 monitor bug fixes) merged squash 7fa07bd.
-# 3 bugs fixed: host filter (A), agent hostname/ip display (B), top-process CPU%/mem% (C). format:ci green (pinned prettier 3.8.3 + prettierignore);
-# agent-build ARM64 workflow fixed (added agent Dockerfile, dropped unused axum-server/tower/http-body-util deps).
+active_flow: deploy-agent   # agent binary staged on both nodes; pending privileged (sudo) install by user
+# STATUS (2026-08-08): PR #2 (6c39310) + PR #3 (7fa07bd) + PR #4 (0464618) merged.
+# PR #4 fixed a real Dockerfile bug: the cache-warm stub step made the ARM64 build ship an EMPTY binary (no clap/http) — the CI artifact was a stub; removed it, verified a real 1.9MB aarch64 agent locally (hostname/ip/cpu% present).
+# AGENT DEPLOY: CI workflow is non-functional (0 repo secrets; private IP unreachable from a hosted runner; appleboy ssh `cat >` stdin bug). Manual path works: built aarch64 binary natively via the node's docker, staged to /tmp/sparkrun-local-agent.fixed on 192.168.1.77 + 192.168.1.22 (md5 2d19d6b1).
 git:
   branch: main
-  commit: fc6fa69
+  commit: 0464618
   status: clean          # clean | dirty (only tracked agent target/ release binaries rebuilt locally)
   origin: "https://github.com/jessenine/sparkrun-ui.git"
 handoff:
-  next_skill: deploy-agent    # DECIDED (2026-08-08): redeploy the new agent — merged bug fixes are inert until shipped to nodes
+  next_skill: install-agent-sudo    # USER: run privileged install on both nodes (see outstanding_work #1) — jix has no passwordless sudo
   completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan, release-branch]
 metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
@@ -24,10 +24,10 @@ metrics:
   tests: 359 # passing; 5 skipped (compat)
   components_coverage: "80.07% statements overall"
 outstanding_work:
-  - "#1 (best) REDEPLOY agent: merged bug fixes are not live on any node. agent-build deploy job skips on PR (only main push/workflow_dispatch, targets 192.168.1.22). Confirm AGENT_CLUSTER* secrets, trigger workflow_dispatch deploy, smoke-test /processes (non-zero CPU%, hostname/ip). Fallback: ship target/release binary + systemd per node (as dev smoke did on pidev9/192.168.1.174)."
-  - "#2 (cleanup) delete superseded branches: fix/monitor-agent-metrics, now-merged fix/land-monitor-agent-metrics (local + remote)"
+  - "#1 (USER ACTION) install staged agent on both nodes: 192.168.1.77 (UI server) + 192.168.1.22 (cluster). Binary at /tmp/sparkrun-local-agent.fixed on both (aarch64, md5 2d19d6b1). jix ssh works but needs sudo password for mv->/usr/local/bin + systemctl restart. Command per node: sudo cp /usr/local/bin/sparkrun-local-agent /usr/local/bin/sparkrun-local-agent.bak.$(date +%s); sudo mv /tmp/sparkrun-local-agent.fixed /usr/local/bin/sparkrun-local-agent; sudo chmod +x; sudo chown root:root; sudo systemctl restart sparkrun-local-agent; then curl http://127.0.0.1:8081/processes to verify hostname/ip present."
+  - "#2 (cleanup) delete superseded branches: fix/monitor-agent-metrics, merged fix/land-monitor-agent-metrics + fix/agent-dockerfile-stub (local + remote)"
   - "#3 E2E (Playwright) — test plan Phase 8, not yet started"
-  - "#4 optional: clap -h collision (host vs help, debug-only panic); untrack agent target/ build artifacts; lightweight docker build smoke for agent-build"
+  - "#4 optional: clap -h collision (host vs help, debug-only panic); untrack agent target/ build artifacts; lightweight docker build smoke for agent-build; decide whether to keep/repair the non-functional CI deploy job (fix scp-action transfer + add secrets) or drop it"
 release_gates:
   passed:
     - "213 tests pass, 5 skipped (compat)"
