@@ -27,7 +27,7 @@ describe("normalizeMonitorOutput", () => {
     expect(result.hosts["127.0.0.1"].gpu_util_pct).toBe("80.2");
   });
 
-  it("handles array format with null sample (preserves host with empty data)", () => {
+  it("excludes array-format hosts with a null sample (no metrics to show)", () => {
     const raw = {
       timestamp: 1780256101.68883,
       hosts: [
@@ -40,10 +40,11 @@ describe("normalizeMonitorOutput", () => {
     };
     const result = normalizeMonitorOutput(raw);
     expect(result.timestamp).toBe(1780256101.68883);
-    expect(result.hosts["192.168.1.22"]).toEqual({});
+    expect(result.hosts["192.168.1.22"]).toBeUndefined();
+    expect(Object.keys(result.hosts)).toHaveLength(0);
   });
 
-  it("handles array format with mixed null and valid samples", () => {
+  it("keeps only hosts with metrics in an array with mixed null and valid samples", () => {
     const raw = {
       timestamp: 1780256101.68883,
       hosts: [
@@ -64,7 +65,7 @@ describe("normalizeMonitorOutput", () => {
     };
     const result = normalizeMonitorOutput(raw);
     expect(result.timestamp).toBe(1780256101.68883);
-    expect(result.hosts["192.168.1.22"]).toEqual({});
+    expect(Object.keys(result.hosts)).toEqual(["127.0.0.1"]);
     expect(result.hosts["127.0.0.1"].cpu_usage_pct).toBe("45.5");
     expect(result.hosts["127.0.0.1"].gpu_util_pct).toBe("80.2");
   });
@@ -101,7 +102,7 @@ describe("normalizeMonitorOutput", () => {
     expect(Object.keys(result.hosts)).toHaveLength(0);
   });
 
-  it("handles undefined sample", () => {
+  it("excludes array-format hosts with an undefined sample", () => {
     const raw = {
       timestamp: 1780256101.68883,
       hosts: [
@@ -113,7 +114,8 @@ describe("normalizeMonitorOutput", () => {
       ],
     };
     const result = normalizeMonitorOutput(raw);
-    expect(result.hosts["127.0.0.1"]).toEqual({});
+    expect(result.hosts["127.0.0.1"]).toBeUndefined();
+    expect(Object.keys(result.hosts)).toHaveLength(0);
   });
 
   it("handles invalid host entry", () => {

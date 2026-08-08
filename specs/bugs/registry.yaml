@@ -76,6 +76,45 @@ bugs:
     status: resolved
     assigned_to: agent
     created_by: agent
+  - bug_id: BUG-20260808T062446
+    date: "2026-08-08"
+    severity: medium
+    priority: 2
+    scope: api
+    title: "Host metrics show cards for hosts not returning metrics"
+    file: specs/bugs/BUG-20260808T062446-host-filter.md
+    status: fixed       # implemented on fix/monitor-agent-metrics RED 1fbe04c / GREEN 76755c1; not yet merged
+    fixed_branch: fix/monitor-agent-metrics
+    fix_commit: 76755c1
+    verification: "monitor-stream.test.ts 9/9 + MonitorLive/HostCard suites pass; tsc clean"
+    assigned_to: agent
+    created_by: agent
+  - bug_id: BUG-20260807T203000
+    date: "2026-08-07"
+    severity: low
+    priority: 3
+    scope: api
+    title: "Local agent does not report its IP; Hostname/IP not displayed"
+    file: specs/bugs/BUG-20260807T203000-agent-hostname-ip.md
+    status: fixed       # FULLY done incl. UI (agent RED 0a659d5/GREEN 74d5ac7; RPC RED 99b6825/GREEN fed2165; UI RED c2a08e6/GREEN 80f8655)
+    fixed_branch: fix/monitor-agent-metrics
+    fix_commit: 80f8655
+    verification: "agent /processes returns ip 192.168.1.174; DashboardLive 12/12; full suite 359 pass/0 fail; tsc clean"
+    assigned_to: agent
+    created_by: agent
+  - bug_id: BUG-20260808T062658
+    date: "2026-08-08"
+    severity: medium
+    priority: 1
+    scope: api
+    title: "Top-process metrics broken (CPU always 0, MEM is MB not %)"
+    file: specs/bugs/BUG-20260808T062658-top-process-metrics.md
+    status: fixed       # implemented on fix/monitor-agent-metrics (helpers + wiring)
+    fixed_branch: fix/monitor-agent-metrics
+    fix_commit: 7f384ac
+    verification: "cargo test 4/4; agent smoke: systemd 0.314% mem, real CPU deltas"
+    assigned_to: agent
+    created_by: agent
 ```
 
 ## Fields

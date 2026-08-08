@@ -51,6 +51,59 @@ pub async fn collect_processes_safe(max_count: usize) -> Result<ProcessList, Col
     })
 }
 
+/// Compute a process CPU usage percentage from the delta in consumed CPU
+/// ticks between two consecutive samples, relative to the real time elapsed
+/// in between. `clk_ticks_per_sec` is the kernel clock-tick rate (typically
+/// 100 on Linux). Returns 0.0 when there is no elapsed time or the counter
+/// went backwards (process replaced).
+pub fn compute_cpu_percent(
+    prev_ticks: u64,
+    curr_ticks: u64,
+    elapsed_secs: f32,
+    clk_ticks_per_sec: f32,
+) -> f32 {
+    if elapsed_secs <= 0.0 || clk_ticks_per_sec <= 0.0 {
+        return 0.0;
+    }
+    let total_ticks = elapsed_secs * clk_ticks_per_sec;
+    if total_ticks <= 0.0 {
+        return 0.0;
+    }
+    let delta = curr_ticks.saturating_sub(prev_ticks) as f32;
+    ((delta / total_ticks) * 100.0).max(0.0)
+}
+
+/// Compute a process memory usage percentage given its resident set size in
+/// bytes and the total system memory in bytes. Returns 0.0 when total is
+/// unknown (avoids division by zero).
+pub fn compute_mem_percent(rss_bytes: u64, total_bytes: u64) -> f32 {
+    if total_bytes == 0 {
+        return 0.0;
+    }
+    ((rss_bytes as f32 / total_bytes as f32) * 100.0).max(0.0)
+}
+
+/// Determine the local IP address of the machine this agent runs on.
+/// Uses the dependency-free UDP-connect trick: binding to an ephemeral local
+/// port and connecting to a fixed remote address (connection never transmits)
+/// selects the egress interface, whose local address we read back. Degrades to
+/// the "unknown" sentinel when no address can be resolved, so callers never
+/// get an empty string and never panic.
+pub fn get_local_ip() -> String {
+    use std::net::UdpSocket;
+    match UdpSocket::bind("0.0.0.0:0") {
+        Ok(sock) => {
+            if sock.connect("8.8.8.8:80").is_ok() {
+                if let Ok(addr) = sock.local_addr() {
+                    return addr.ip().to_string();
+                }
+            }
+            "unknown".to_string()
+        }
+        Err(_) => "unknown".to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -62,5 +115,37 @@ mod tests {
         
         let processes = result.unwrap();
         assert!(processes.processes.len() <= 5);
+    }
+
+    #[test]
+    fn cpu_percent_from_tick_delta() {
+        // 50 ticks consumed over 1s at 100 ticks/sec = 50%
+        assert!((compute_cpu_percent(100, 150, 1.0, 100.0) - 50.0).abs() < 0.001);
+        // 200 ticks over 1s at 100 ticks/sec = 200% (multi-threaded process scope)
+        assert!((compute_cpu_percent(100, 300, 1.0, 100.0) - 200.0).abs() < 0.001);
+        // No elapsed time -> 0 (guard div-by-zero)
+        assert_eq!(compute_cpu_percent(0, 10, 0.0, 100.0), 0.0);
+        // Counter went backwards (PID reused) -> clamp to 0
+        assert_eq!(compute_cpu_percent(200, 100, 1.0, 100.0), 0.0);
+    }
+
+    #[test]
+    fn mem_percent_of_total() {
+        // 1 GiB of 16 GiB = 6.25%
+        let rss = 1024u64 * 1024 * 1024;
+        let total = 16u64 * 1024 * 1024 * 1024;
+        assert!((compute_mem_percent(rss, total) - 6.25).abs() < 0.001);
+        // Zero total -> 0 (no div-by-zero)
+        assert_eq!(compute_mem_percent(1000, 0), 0.0);
+        // Clamped to 0 for empty rss
+        assert_eq!(compute_mem_percent(0, total), 0.0);
+    }
+
+    #[test]
+    fn local_ip_returns_a_value() {
+        // The machine always has a hostname/IP to report; if enumeration fails it
+        // must degrade to a known sentinel rather than panic or return empty.
+        let ip = get_local_ip();
+        assert!(!ip.is_empty(), "get_local_ip must return an IP or the 'unknown' sentinel");
     }
 }

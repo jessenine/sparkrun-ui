@@ -15,6 +15,8 @@ type Tick = { timestamp: number; hosts: Record<string, { hostname?: string }> };
 type ProcResult = {
   timestamp: number;
   processes: { user: string; pid: number; cpu: number; mem: number; command: string }[];
+  hostname?: string;
+  ip_address?: string;
 };
 
 const handler = (proc: object): ((o: HandlerOpts) => unknown) =>
@@ -31,7 +33,6 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   vi.clearAllMocks();
 });
-
 function mockFetch(impl: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
   globalThis.fetch = vi.fn(impl) as unknown as typeof fetch;
 }
@@ -63,6 +64,33 @@ describe("monitor.stream", () => {
     const gen = handler(stream)({ input: undefined, signal: undefined }) as AsyncGenerator<Tick>;
     const first = await gen.next();
     expect((first.value as Tick).hosts).toEqual({});
+  });
+
+  it("excludes array-format hosts that errored or returned no sample", async () => {
+    mocks.streamSparkrunNdjson.mockReturnValue(
+      streamOf([
+        {
+          timestamp: 1,
+          hosts: [
+            { host: "dead", error: "ssh: connect refused", sample: { hostname: "dead", cpu_usage_pct: "0" } },
+            { host: "empty", error: null, sample: null },
+            { host: "alive", error: null, sample: { hostname: "alive", cpu_usage_pct: "45" } },
+          ],
+        },
+      ]),
+    );
+    const gen = handler(stream)({ input: undefined, signal: undefined }) as AsyncGenerator<Tick>;
+    const tick = (await gen.next()).value as Tick;
+    expect(Object.keys(tick.hosts)).toEqual(["alive"]);
+  });
+
+  it("excludes flat-record hosts whose sample is an empty object", async () => {
+    mocks.streamSparkrunNdjson.mockReturnValue(
+      streamOf([{ timestamp: 1, hosts: { dead: {}, alive: { hostname: "alive", cpu_usage_pct: "10" } } }]),
+    );
+    const gen = handler(stream)({ input: undefined, signal: undefined }) as AsyncGenerator<Tick>;
+    const tick = (await gen.next()).value as Tick;
+    expect(Object.keys(tick.hosts)).toEqual(["alive"]);
   });
 });
 
@@ -116,5 +144,24 @@ describe("monitor.processes", () => {
     });
     const r = (await handler(processes)({ input: undefined })) as ProcResult;
     expect(r.processes).toEqual([]);
+  });
+
+  it("surfaces the host agent's hostname and ip when falling back to it", async () => {
+    mocks.streamSparkrunNdjson.mockReturnValue(streamOf([{ timestamp: 1, hosts: {} }]));
+    mockFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            processes: [proc(5, 80)],
+            hostname: "pidev9",
+            ip_address: "192.168.1.174",
+          }),
+          { status: 200 },
+        ),
+    );
+    const r = (await handler(processes)({ input: undefined })) as ProcResult;
+    expect(r.processes.map((p) => p.pid)).toEqual([5]);
+    expect(r.hostname).toBe("pidev9");
+    expect(r.ip_address).toBe("192.168.1.174");
   });
 });
