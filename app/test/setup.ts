@@ -9,6 +9,12 @@ afterEach(() => {
   cleanup();
 });
 
+// jsdom does not implement scrollIntoView; components that scroll a container
+// into view (e.g. UpdateSparkrunButton) would throw in a passive effect.
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 // Next.js primitives used by app components. These are mocked so component
 // tests can render in jsdom without the Next runtime or an image optimizer.
 vi.mock("next/image", () => ({
