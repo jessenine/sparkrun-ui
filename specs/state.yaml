@@ -21,9 +21,9 @@ metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
   story_progress: 85  # core lib pure-logic coverage complete (136 tests)
 outstanding_work:
-  - "continue component tests (app/components/) — now 50% stmts (up from 12.7%), targets ~80%"
-  - "E2E (Playwright) — test plan Phase 7, not yet started"
-  - "raise overall coverage (currently 30.5%) toward 80% gate"
+  - "heavy components: LaunchWizard, NewBenchmarkForm, DashboardLive, BenchmarkCharts (recharts), RecipeInfoPopover, RecipeShowDialog/YamlEditor (CodeMirror)"
+  - "E2E (Playwright) — test plan Phase 8, not yet started"
+  - "raise overall coverage (currently ~41% statements) toward 80% gate"
   - "git push origin main (unpushed: EACCES fix 838e5ab)"
 release_gates:
   passed:
@@ -33,13 +33,13 @@ release_gates:
     - "19 commits all Conventional Commits"
     - "no Co-authored-by / AI attribution"
   unmet:
-    - "overall coverage 30.5% (gate 80%) — improved from ~18.5% at session start, still below gate"
-    - "app/components statements 50% (target 80%)"
+    - "overall coverage ~41% (gate 80%) — improved from ~18.5% at Option-B start"
+    - "app/components statements ~52% (improved from 12.7%)"
     - "no specs/security/REVIEW.md"
     - "no traceability matrix (gate-trace)"
 completed_work:
-  - "component test infra: @testing-library/react+user-event+jest-dom, jsdom, app/test/setup.ts (next/image, next/link, next/navigation mocks), vitest coverage for app/"
-  - "component tests: AggregateStats, ProcessList, SparklineGraph, WorkloadCard-path, HeaderStats, MonitorLive, HostCard, LogStream, RecipesBrowser, BenchmarksList, Shell, Nav, Footer, useWorkloadHealth hook, ui primitives (Button/Badge/Field/LocalTime/Switch/Tabs/NumberField/CodeBlock)"
+  - "component test infra: @testing-library/react+user-event+jest-dom, jsdom, app/test/setup.ts (next/image, next/link, next/navigation, scrollIntoView mocks), vitest coverage for app/"
+  - "component tests: AggregateStats, ProcessList, SparklineGraph, WorkloadCard, UpdateSparkrunButton, DashboardLive-children, HeaderStats, MonitorLive, HostCard, LogStream, RecipesBrowser, BenchmarksList, BenchmarkDetail, Shell, ChatPage, launch (IssueList/OverridesForm/LaunchProgressDialog), ui primitives"
   - "BUG cycle: BUG-20260807T184042 (EACCES fix) — resolved and deployed"
   - "test(draft): draft lifecycle — SC-P0-21, SC-P0-22"
   - "test(monitor): monitor RPC — SC-P0-32, SC-P0-33"
