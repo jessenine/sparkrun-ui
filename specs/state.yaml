@@ -7,31 +7,33 @@ Session state and workflow tracking for bigpowers.
 ```yaml
 workflow_mode: solo-git  # team-pr | solo-git (default)
 active_flow: null         # deploy COMPLETE — new agent live on both nodes; only CI-deploy-strategy decision + optional cleanup remain
-# STATUS (2026-08-08): PR #2 (6c39310) + PR #3 (7fa07bd) + PR #4 (0464618) merged.
-# DEPLOY LIVE: new aarch64 agent (md5 2d19d6b1) installed+verified on BOTH 192.168.1.77 (spark-c149) and 192.168.1.22 (spark-30fc);
-#   /processes now returns hostname + ip_address (Bug B) + real cpu/mem% (Bug C) on both. Old binaries backed up as /usr/local/bin/sparkrun-local-agent.bak.*.
-# CI DEPLOY JOB: deemed NOT feasible with GitHub-hosted runners (private LAN IP unreachable from MS cloud; appleboy ssh-action can't transfer the artifact
-#   [cat > writes empty file]; and jix has no NOPASSWD sudo [TTY needed]). Recommendation = keep (now-fixed) build job as ARM64 compile gate; drop/disable deploy job; rely on manual deploy script.
-# Branch cleanup DONE: deleted fix/monitor-agent-metrics, fix/land-monitor-agent-metrics, fix/agent-dockerfile-stub (local+remote).
+# STATUS (2026-08-08): PR #6 (a7471b5) MERGED — per-host top-process identity fixed.
+# PER-HOST FIX: monitor.processes RPC rewritten to key by host (queries each node's port-8081 agent,
+#   skips unreachable, returns {hosts:[{host,hostname,ip_address,processes}]}); agent self-reports real
+#   hostname+LAN ip so 127.0.0.1 resolves to true identity. Dashboard renders one card per LIVE agent,
+#   labeled hostname (ip), each with its own top processes. CI green (both checks) before merge.
+#   Tests 359/5, tsc clean, eslint 0 errors, prettier format:ci parity.
+# CHART FEATURE REQUESTED (outstanding #6): Top Processes should render a formatted chart, not ASCII.
 git:
   branch: main
-  commit: 0464618
+  commit: a7471b5
   status: clean          # clean | dirty (only tracked agent target/ release binaries rebuilt locally)
   origin: "https://github.com/jessenine/sparkrun-ui.git"
 handoff:
-  next_skill: null      # deploy done; remaining: optional CI-deploy decision, optional branch cleanup, e2e
+  next_skill: null      # next: Top-Process CHART feature (outstanding #6); optional e2e
   completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan, release-branch]
 metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
-  story_progress: 100  # coverage 80.07% stmts; PR #2 + PR #3 merged; 3 bugs landed
+  story_progress: 100  # coverage 80.07% stmts; PRs #2+#3+#4+#5+#6 merged
   tests: 359 # passing; 5 skipped (compat)
   components_coverage: "80.07% statements overall"
 outstanding_work:
-  - "#1 DONE - agent redeploy complete: new aarch64 agent live on 192.168.1.77 + 192.168.1.22 (md5 2d19d6b1); /processes returns hostname+ip_address+real cpu/mem% on both. User ran privileged install (needs sudo password)."
-  - "#2 DONE - cleanup: deleted merged/superseded branches fix/monitor-agent-metrics, fix/land-monitor-agent-metrics, fix/agent-dockerfile-stub (local+remote). Other stale remotes remain (not touched): deploy/process-list-feature, feat/add-missing-tests, feature/e01s05-process-utility, fix-dashboard-metrics, fix-one-liner — ask user before deleting."
-  - "#3 (OPEN) CI deploy job strategy: recommended to DROP/DISABLE the deploy job (not feasible with hosted runners: private LAN unreachable + no artifact transfer + jix lacks NOPASSWD sudo) and keep the fixed build job as an ARM64 compile gate. Manual deploy script is the working path."
+  - "#6 (NEW FEATURE REQ) Top Processes should render a nicely formatted CHART instead of a raw ASCII list — queued as a follow-up PR (separate from the per-host identity fix)."
+  - "#1 DONE - agent redeploy complete: new aarch64 agent live on 192.168.1.77 + 192.168.1.22 (md5 2d19d6b1); /processes returns hostname+ip_address+real cpu/mem% on both."
+  - "#2 DONE - cleanup: deleted merged/superseded branches fix/monitor-agent-metrics etc. Other stale remotes remain (ask user): deploy/process-list-feature, feat/add-missing-tests, feature/e01s05-process-utility, fix-dashboard-metrics, fix-one-liner.
+  - "#3 DONE via PR #5 (5099e29) - CI deploy job removed; build job kept as ARM64 compile gate. Manual deploy is the working path."
   - "#4 (OPEN) E2E (Playwright) - test plan Phase 8, not yet started"
-  - "#5 optional: clap -h collision (host vs help, debug-only panic); untrack agent target/ build artifacts; consider a self-hosted GitHub runner on the LAN if true automated deploy is ever wanted"
+  - "#5 optional: clap -h collision (debug-only); untrack agent target/ build artifacts (incl DashboardLive.tsx.backup stray tracked file); self-hosted GitHub runner for true CD"
 release_gates:
   passed:
     - "213 tests pass, 5 skipped (compat)"
@@ -57,6 +59,7 @@ completed_work:
   - "test(state): isTerminalStatus/deriveStatus"
   - "test(metrics-collector): parseMetricNdjson (RED/GREEN)"
   - "test(disk): parseDfOutput (RED/GREEN)"
+  - "PER-HOST FIX (PR #6, a7471b5): monitor.processes -> per-host output {timestamp, hosts:[{host,hostname,ip_address,processes}]}; each node's port-8081 agent queried directly (refactored fetchFromHostAgent -> fetchAgentProcesses(host)), unreachable skipped, dedup by agent ip. DashboardLive renders one card per live agent labeled hostname (ip); removed 'Local agent' note. New RPC tests + DashboardLive per-host tests."
   - "scripts/verify-tdd-red-commit.sh: TDD cycle enforcement script"
   - "test batch: AnimatedBackground (98%), BenchmarkCharts (84%), RecipeShowDialog (90%), RecipeInfoPopover (88%), Textarea, YamlEditor (86%) — pushed coverage to 77%"
   - "REACHED 80% STATEMENTS GATE: 80.07% (2226/2780), lines 83.07%, 355 passed / 5 skipped, typecheck clean"
@@ -69,6 +72,7 @@ epic:
     - BUG-20260807T162700: "Dashboard metrics and graphs not showing — resolved (sparkrun installed via pip)"
     - BUG-20260807T162715: "Recipes page returns 500 — resolved (sparkrun installed via pip)"
     - BUG-20260807T184042: "Recipe validation fails with EACCES on draft directory — resolved (chmod 777 on draft dir)"
+    - BUG-20260808T000000: "Per-host process identity — top processes identical across hosts, cards labeled 127.0.0.1. Root cause: monitor.processes returned one flat list copied to every host card. FIXED in PR #6 (a7471b5): per-host agent query; one live-agent card each, labeled hostname (ip)."
   test_coverage:
     high: "lib/draft.ts, lib/rpc/procedures/monitor.ts, lib/rpc/procedures/recipes.ts schemas"
     medium: "lib/rpc/procedures/helpers.ts, lib/rpc/procedures/run.ts, lib/portCheck.ts"
