@@ -114,7 +114,7 @@ export function RecipesBrowser({ recipes, runningRecipes }: RecipeBrowserProps) 
       try {
         const withCategory = await rpc.recipes.listWithCategory({ all: true });
         if (!controller.signal.aborted) {
-          setCategories(withCategory.map((r: any) => ({ name: r.name, category: r.category ?? "general" })));
+          setCategories(withCategory.map((r: { name: string; category?: string }) => ({ name: r.name, category: r.category ?? "general" })));
         }
       } catch (e) {
         console.warn("[RecipesBrowser] Category fetch failed:", e);

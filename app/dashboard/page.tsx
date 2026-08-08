@@ -1,11 +1,12 @@
 import { resolveRunningRecipeDisplay, type RunningRecipeDisplay } from "@/lib/runningRecipes";
 import { DashboardLive } from "@/app/components/dashboard/DashboardLive";
-import { ClusterStatusSchema } from "@/lib/schemas";
+import { ClusterStatusSchema, type RecipeListItem } from "@/lib/schemas";
 import { serverClient as _serverClient } from "@/lib/rpc/server";
 
 // Suppress type error - ORPC framework type inference issue
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- ORPC server-client type-inference escape
 const serverClient = _serverClient as any;
 
 // Get cluster status from agent endpoint (no sparkrun required)
@@ -69,7 +70,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   let initial = { groups: {}, solo_entries: [], idle_hosts: [], pending_ops: [], errors: {}, total_containers: 0, host_count: 0, hosts: {} };
-  let recipes: any[] = [];
+  let recipes: RecipeListItem[] = [];
   
   // Get status first
   try {
@@ -80,7 +81,7 @@ export default async function DashboardPage() {
   
   // Get recipes separately (may fail if sparkrun not available)
   try {
-    recipes = await serverClient.recipes.list({ all: true }).catch(() => []) as any;
+    recipes = await serverClient.recipes.list({ all: true }).catch(() => []);
   } catch (err) {
     console.error("[recipes.list] Error:", err);
     recipes = [];

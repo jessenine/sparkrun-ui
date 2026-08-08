@@ -122,8 +122,8 @@ export async function getProcessList(
     
     const data = await response.json();
     return data as AgentProcessList;
-  } catch (error: any) {
-    console.error(`[agent.client] Failed to get process list from ${baseUrl}:`, error?.message || error);
+  } catch (error: unknown) {
+    console.error(`[agent.client] Failed to get process list from ${baseUrl}:`, error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -155,8 +155,8 @@ export async function queryAgentProcesses(
     }
     
     return result.processes;
-  } catch (error: any) {
-    console.error("[agent.client] Process query failed:", error?.message || error);
+  } catch (error: unknown) {
+    console.error("[agent.client] Process query failed:", error instanceof Error ? error.message : error);
     return [];
   }
 }

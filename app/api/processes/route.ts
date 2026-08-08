@@ -4,20 +4,25 @@ import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
 
 // Transform process info from monitor metrics into the format expected by DashboardLive
 // Dashboard expects: { processes: [{ host, entries }] }
-function transformProcessesForDashboard(metrics: any[]): any {
+type ProcessContainer = { name?: string };
+type ProcessWorkload = { recipe?: string; containers?: ProcessContainer[] };
+type ProcessHost = { host?: string; workloads?: ProcessWorkload[] };
+type ProcessesLatest = { hosts?: ProcessHost[] };
+
+function transformProcessesForDashboard(metrics: unknown[]): Record<string, unknown> {
   // Take the most recent metrics snapshot
-  const latest = metrics[metrics.length - 1] || { hosts: [] };
+  const latest = (metrics[metrics.length - 1] as ProcessesLatest | undefined) ?? { hosts: [] };
   
   // Build array of { host, entries } objects for dashboard
-  const processes: Array<{ host: string; entries: any[] }> = [];
+  const processes: Array<{ host: string; entries: Array<Record<string, unknown>> }> = [];
   
-  for (const h of latest.hosts || []) {
+  for (const h of latest.hosts ?? []) {
     const hostIp = h.host || "unknown";
-    const entries: any[] = [];
+    const entries: Array<Record<string, unknown>> = [];
     
     // Extract workloads as process info
-    for (const w of h.workloads || []) {
-      for (const c of w.containers || []) {
+    for (const w of h.workloads ?? []) {
+      for (const c of w.containers ?? []) {
         entries.push({
           user: w.recipe || "unknown",
           pid: 0, // No PID available from sparkrun - use 0 as placeholder

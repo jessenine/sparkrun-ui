@@ -4,12 +4,12 @@ import { getMonitorMetrics, collectMetrics } from "@/lib/metrics-collector";
 
 // Transform monitor metrics into the format expected by the dashboard
 // where hosts is a record keyed by IP address
-function transformMonitorMetrics(metrics: any[]): any {
+function transformMonitorMetrics(metrics: unknown[]): Record<string, unknown> {
   // Take the most recent metrics snapshot (last in the array)
-  const latest = metrics[metrics.length - 1] || { hosts: {} };
+  const latest = (metrics[metrics.length - 1] as Record<string, unknown> | undefined) ?? { hosts: {} };
   
   // The hosts is already a record keyed by IP address, just use it directly
-  const hosts = latest.hosts || {};
+  const hosts = latest.hosts ?? {};
   
   return {
     results: [

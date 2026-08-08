@@ -8,14 +8,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { queryAgentProcesses, checkAgentHealth, getAgentMetrics, getProcessList, getAgentBaseUrl } from './client';
 
 // Mock fetch for testing
-const mockFetch = (response: any, status: number = 200) => {
+type FetchImpl = typeof global.fetch;
+
+const mockFetch = (response: unknown, status: number = 200) => {
   global.fetch = vi.fn(() =>
     Promise.resolve({
       ok: status === 200,
       status,
       json: () => Promise.resolve(response),
     })
-  ) as any;
+  ) as unknown as FetchImpl;
 };
 
 describe('Agent Client', () => {
@@ -27,7 +29,7 @@ describe('Agent Client', () => {
   afterEach(() => {
     // Restore global fetch
     if (global.fetch) {
-      delete (global as any).fetch;
+      delete (global as { fetch?: FetchImpl }).fetch;
     }
   });
 
@@ -47,7 +49,7 @@ describe('Agent Client', () => {
     });
 
     it('should return null on network error', async () => {
-      global.fetch = vi.fn(() => Promise.reject(new Error('Network error'))) as any;
+      global.fetch = vi.fn(() => Promise.reject(new Error('Network error'))) as unknown as FetchImpl;
 
       const result = await checkAgentHealth();
       expect(result).toBeNull();
@@ -101,7 +103,7 @@ describe('Agent Client', () => {
     });
 
     it('should return null on error', async () => {
-      global.fetch = vi.fn(() => Promise.reject(new Error('Connection refused'))) as any;
+      global.fetch = vi.fn(() => Promise.reject(new Error('Connection refused'))) as unknown as FetchImpl;
 
       const result = await getProcessList();
       expect(result).toBeNull();
@@ -139,7 +141,7 @@ describe('Agent Client', () => {
     });
 
     it('should return empty array on error', async () => {
-      global.fetch = vi.fn(() => Promise.reject(new Error('Timeout'))) as any;
+      global.fetch = vi.fn(() => Promise.reject(new Error('Timeout'))) as unknown as FetchImpl;
 
       const result = await queryAgentProcesses(undefined, 5);
       expect(result).toEqual([]);
