@@ -6,17 +6,20 @@ Session state and workflow tracking for bigpowers.
 
 ```yaml
 workflow_mode: solo-git  # team-pr | solo-git (default)
-active_flow: deploy-agent   # agent binary staged on both nodes; pending privileged (sudo) install by user
+active_flow: null         # deploy COMPLETE — new agent live on both nodes; only CI-deploy-strategy decision + optional cleanup remain
 # STATUS (2026-08-08): PR #2 (6c39310) + PR #3 (7fa07bd) + PR #4 (0464618) merged.
-# PR #4 fixed a real Dockerfile bug: the cache-warm stub step made the ARM64 build ship an EMPTY binary (no clap/http) — the CI artifact was a stub; removed it, verified a real 1.9MB aarch64 agent locally (hostname/ip/cpu% present).
-# AGENT DEPLOY: CI workflow is non-functional (0 repo secrets; private IP unreachable from a hosted runner; appleboy ssh `cat >` stdin bug). Manual path works: built aarch64 binary natively via the node's docker, staged to /tmp/sparkrun-local-agent.fixed on 192.168.1.77 + 192.168.1.22 (md5 2d19d6b1).
+# DEPLOY LIVE: new aarch64 agent (md5 2d19d6b1) installed+verified on BOTH 192.168.1.77 (spark-c149) and 192.168.1.22 (spark-30fc);
+#   /processes now returns hostname + ip_address (Bug B) + real cpu/mem% (Bug C) on both. Old binaries backed up as /usr/local/bin/sparkrun-local-agent.bak.*.
+# CI DEPLOY JOB: deemed NOT feasible with GitHub-hosted runners (private LAN IP unreachable from MS cloud; appleboy ssh-action can't transfer the artifact
+#   [cat > writes empty file]; and jix has no NOPASSWD sudo [TTY needed]). Recommendation = keep (now-fixed) build job as ARM64 compile gate; drop/disable deploy job; rely on manual deploy script.
+# Branch cleanup DONE: deleted fix/monitor-agent-metrics, fix/land-monitor-agent-metrics, fix/agent-dockerfile-stub (local+remote).
 git:
   branch: main
   commit: 0464618
   status: clean          # clean | dirty (only tracked agent target/ release binaries rebuilt locally)
   origin: "https://github.com/jessenine/sparkrun-ui.git"
 handoff:
-  next_skill: install-agent-sudo    # USER: run privileged install on both nodes (see outstanding_work #1) — jix has no passwordless sudo
+  next_skill: null      # deploy done; remaining: optional CI-deploy decision, optional branch cleanup, e2e
   completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan, release-branch]
 metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
@@ -24,10 +27,11 @@ metrics:
   tests: 359 # passing; 5 skipped (compat)
   components_coverage: "80.07% statements overall"
 outstanding_work:
-  - "#1 (USER ACTION) install staged agent on both nodes: 192.168.1.77 (UI server) + 192.168.1.22 (cluster). Binary at /tmp/sparkrun-local-agent.fixed on both (aarch64, md5 2d19d6b1). jix ssh works but needs sudo password for mv->/usr/local/bin + systemctl restart. Command per node: sudo cp /usr/local/bin/sparkrun-local-agent /usr/local/bin/sparkrun-local-agent.bak.$(date +%s); sudo mv /tmp/sparkrun-local-agent.fixed /usr/local/bin/sparkrun-local-agent; sudo chmod +x; sudo chown root:root; sudo systemctl restart sparkrun-local-agent; then curl http://127.0.0.1:8081/processes to verify hostname/ip present."
-  - "#2 (cleanup) delete superseded branches: fix/monitor-agent-metrics, merged fix/land-monitor-agent-metrics + fix/agent-dockerfile-stub (local + remote)"
-  - "#3 E2E (Playwright) — test plan Phase 8, not yet started"
-  - "#4 optional: clap -h collision (host vs help, debug-only panic); untrack agent target/ build artifacts; lightweight docker build smoke for agent-build; decide whether to keep/repair the non-functional CI deploy job (fix scp-action transfer + add secrets) or drop it"
+  - "#1 DONE - agent redeploy complete: new aarch64 agent live on 192.168.1.77 + 192.168.1.22 (md5 2d19d6b1); /processes returns hostname+ip_address+real cpu/mem% on both. User ran privileged install (needs sudo password)."
+  - "#2 DONE - cleanup: deleted merged/superseded branches fix/monitor-agent-metrics, fix/land-monitor-agent-metrics, fix/agent-dockerfile-stub (local+remote). Other stale remotes remain (not touched): deploy/process-list-feature, feat/add-missing-tests, feature/e01s05-process-utility, fix-dashboard-metrics, fix-one-liner — ask user before deleting."
+  - "#3 (OPEN) CI deploy job strategy: recommended to DROP/DISABLE the deploy job (not feasible with hosted runners: private LAN unreachable + no artifact transfer + jix lacks NOPASSWD sudo) and keep the fixed build job as an ARM64 compile gate. Manual deploy script is the working path."
+  - "#4 (OPEN) E2E (Playwright) - test plan Phase 8, not yet started"
+  - "#5 optional: clap -h collision (host vs help, debug-only panic); untrack agent target/ build artifacts; consider a self-hosted GitHub runner on the LAN if true automated deploy is ever wanted"
 release_gates:
   passed:
     - "213 tests pass, 5 skipped (compat)"
