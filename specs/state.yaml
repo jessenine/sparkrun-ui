@@ -6,16 +6,15 @@ Session state and workflow tracking for bigpowers.
 
 ```yaml
 workflow_mode: solo-git  # team-pr | solo-git (default)
-active_flow: release-branch   # feature branch verified, awaiting merge decision
-# DECISION PENDING (user): Options A merge+push now, B continue Phase 7-8 first.
-# Not yet actioned — state saved on user request before merge executed.
+active_flow: build-epic   # merge deferred; continuing Phase 7-8 to close gates
+# DECISION (2026-08-07): user declined merge at ~41% coverage. Continue component tests + lib coverage toward 80% gate, then add security REVIEW + traceability matrix before any merge.
 git:
   branch: feat/add-missing-tests
   commit: 241d3ad
   status: clean          # clean | dirty
   origin: "https://github.com/jessenine/sparkrun-ui.git (origin/main ahead 1 unpushed: 838e5ab EACCES fix)"
 handoff:
-  next_skill: release-branch    # awaiting user decision: merge (+push) vs continue to Phase 7 components
+  next_skill: develop-tdd    # merge deferred; raising coverage + adding security/traceability gates
   completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan, release-branch]
 metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
