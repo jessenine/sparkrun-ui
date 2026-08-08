@@ -4,23 +4,34 @@ import { streamSparkrunNdjson } from "@/lib/sparkrun";
 import type { ProcessEntry } from "./processes";
 
 /**
- * Attempt to fetch process data from a host-local agent on port 8081.
- * The agent runs on each host outside the Docker container and has proper
- * SSH/sparkrun access, unlike sparkrun inside the container.
+ * Query a single host-local agent on port 8081 and return its own process list
+ * plus the hostname/ip_address the agent reports for ITSELF.
+ *
+ * Each node runs this agent outside the Docker container and it has proper
+ * ssh/sparkrun access (unlike sparkrun inside the container). The agent is the
+ * authoritative per-node source: it returns the node's own real ip_address (so
+ * a candidat of "127.0.0.1" resolves to the node's real LAN IP) + hostname, and
+ * the top processes observed on that node. Returns null when the agent is
+ * unreachable so callers can drop non-live hosts.
  */
-async function fetchFromHostAgent(): Promise<{
+async function fetchAgentProcesses(hostOrIp: string): Promise<{
   processes: ProcessEntry[];
   hostname?: string;
   ip_address?: string;
 } | null> {
   try {
-    const url = new URL("http://127.0.0.1:8081/processes");
+    const url = new URL(`http://${hostOrIp}:8081/processes`);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     try {
       const response = await fetch(url, { signal: controller.signal });
       if (!response.ok) {
-        console.warn("[monitor.processes] Host agent returned status", response.status);
+        console.warn(
+          "[monitor.processes] Host agent",
+          hostOrIp,
+          "returned status",
+          response.status,
+        );
         return null;
       }
       const data = (await response.json()) as {
@@ -37,7 +48,7 @@ async function fetchFromHostAgent(): Promise<{
       clearTimeout(timeout);
     }
   } catch (error) {
-    console.warn("[monitor.processes] Host agent unreachable:", error);
+    console.warn("[monitor.processes] Host agent", hostOrIp, "unreachable:", error);
     return null;
   }
 }
@@ -195,102 +206,57 @@ export const processes = os
   .output(
     z.object({
       timestamp: z.number(),
-      hostname: z.string().optional(),
-      ip_address: z.string().optional(),
-      processes: z.array(
+      hosts: z.array(
         z.object({
-          user: z.string(),
-          pid: z.number(),
-          cpu: z.number(),
-          mem: z.number(),
-          command: z.string(),
+          host: z.string(),
+          hostname: z.string().optional(),
+          ip_address: z.string().optional(),
+          processes: z.array(
+            z.object({
+              user: z.string(),
+              pid: z.number(),
+              cpu: z.number(),
+              mem: z.number(),
+              command: z.string(),
+            }),
+          ),
         }),
       ),
     }),
   )
-  .handler(async function ({ input, signal }) {
-    // Fetch a single snapshot from the monitor stream.
-    // sparkrun cluster monitor --json streams process data per host.
-    // We take one tick and extract the process lists.
-    // Don't pass --hosts filter: sparkrun inside the Docker container can't SSH
-    // to explicit IPs (host key verification fails). Without --hosts, sparkrun uses
-    // its default cluster SSH config which works. Additionally, all hosts' process
-    // data is aggregated regardless of filter.
-    const args = ["cluster", "monitor", "--json", "--interval", "1"];
-    console.log("[monitor.processes] Running command:", args.join(" "));
+  .handler(async function ({ input }) {
+    // Candidate hosts to query. Each is a local-agent address on port 8081.
+    // If none are given, default to the machine this server runs on.
+    const candidates = input?.hosts && input.hosts.length > 0 ? input.hosts : ["127.0.0.1"];
 
-    const allProcesses: ProcessEntry[] = [];
-    let gotData = false;
-
-    for await (const obj of streamSparkrunNdjson<unknown>(args, {
-      signal,
-    }) as AsyncIterable<unknown>) {
-      if (signal?.aborted) break;
-      if (gotData) break; // Only one tick with data needed
-
-      const tick = normalizeMonitorOutput(obj);
-
-      // Extract process data from each host's metrics
-      let hostHasProcesses = false;
-      for (const [, hostData] of Object.entries(tick.hosts)) {
-        if (!hostData.processes) continue;
-
-        let processes: ProcessEntry[] = [];
-        if (Array.isArray(hostData.processes)) {
-          processes = hostData.processes as ProcessEntry[];
-        } else if (typeof hostData.processes === "string") {
-          try {
-            processes = JSON.parse(hostData.processes) as ProcessEntry[];
-          } catch {
-            continue;
-          }
-        }
-
-        if (processes.length > 0) {
-          hostHasProcesses = true;
-          allProcesses.push(...processes);
-        }
-      }
-
-      if (hostHasProcesses) {
-        gotData = true;
-      }
-      // If this tick had no process data (e.g. SSH errors for all hosts),
-      // continue to the next tick or fall through to host agent fallback
-      break;
-    }
-
-    if (!gotData) {
-      console.warn("[monitor.processes] No process data from sparkrun monitor stream");
-      // Fallback: try the host-local agent (runs outside container with proper SSH/sparkrun access)
-      const agentData = await fetchFromHostAgent();
-      if (agentData && agentData.processes.length > 0) {
-        console.log(
-          "[monitor.processes] Falling back to host agent —",
-          agentData.processes.length,
-          "processes",
-        );
-        const valid = agentData.processes.filter((p) => !isNaN(p.cpu) && !isNaN(p.mem));
+    const rows = await Promise.all(
+      candidates.map(async (host) => {
+        const agent = await fetchAgentProcesses(host);
+        if (!agent) return null;
+        // Filter NaN before sorting to keep sorts stable and pass Zod.
+        const valid = agent.processes.filter((p) => !isNaN(p.cpu) && !isNaN(p.mem));
         valid.sort((a, b) => b.cpu - a.cpu);
         return {
-          timestamp: Date.now(),
-          hostname: agentData.hostname,
-          ip_address: agentData.ip_address,
+          host,
+          hostname: agent.hostname,
+          ip_address: agent.ip_address,
           processes: valid.slice(0, 10),
         };
-      }
-      console.warn("[monitor.processes] Host agent also unavailable — returning empty");
-    }
+      }),
+    );
 
-    // Filter out entries where cpu or mem is NaN before sorting
-    // to prevent unstable sort and Zod runtime rejection
-    const valid = allProcesses.filter((p) => !isNaN(p.cpu) && !isNaN(p.mem));
+    // Keep only hosts with a live agent, in candidate order, dedup by the
+    // canonical ip the agent reports (so e.g. 127.0.0.1 and 192.168.1.77 are
+    // never shown as two cards for the same machine).
+    const seen = new Set<string>();
+    const hosts = rows
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .filter((r) => {
+        const canonical = r.ip_address || r.host;
+        if (seen.has(canonical)) return false;
+        seen.add(canonical);
+        return true;
+      });
 
-    // Sort by CPU descending and return top 10
-    valid.sort((a, b) => b.cpu - a.cpu);
-
-    return {
-      timestamp: Date.now(),
-      processes: valid.slice(0, 10),
-    };
+    return { timestamp: Date.now(), hosts };
   });

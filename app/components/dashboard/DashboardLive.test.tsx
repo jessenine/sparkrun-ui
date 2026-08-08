@@ -58,7 +58,7 @@ describe("DashboardLive", () => {
     monitorProcesses.mockReset();
     // Default: empty stream that yields nothing so poll effects are inert.
     monitorStream.mockResolvedValue(stream([]));
-    monitorProcesses.mockResolvedValue({ processes: [] });
+    monitorProcesses.mockResolvedValue({ timestamp: 0, hosts: [] });
   });
 
   it("renders the header with host and container counts", () => {
@@ -164,7 +164,7 @@ describe("DashboardLive", () => {
     expect(screen.getByText("Loading metrics...")).toBeInTheDocument();
   });
 
-  it("populates metric history from monitor stream ticks and renders host cards", async () => {
+  it("populates metric history from monitor stream ticks and renders live-agent host cards", async () => {
     monitorStream.mockResolvedValue(
       stream([
         {
@@ -174,18 +174,28 @@ describe("DashboardLive", () => {
         },
       ]),
     );
-    render(<DashboardLive initial={makeInitial()} recipeByCluster={recipeByCluster} />);
+    monitorProcesses.mockResolvedValue({
+      timestamp: 1,
+      hosts: [{ host: "10.0.0.1", processes: [], hostname: "spark-a", ip_address: "10.0.0.1" }],
+    });
+    render(
+      <DashboardLive
+        initial={makeInitial({ groups: { g1: { meta: { hosts: ["10.0.0.1"] } } } })}
+        recipeByCluster={recipeByCluster}
+      />,
+    );
     await waitFor(() => {
-      expect(screen.getByText("10.0.0.1")).toBeInTheDocument();
+      expect(screen.getAllByText("spark-a (10.0.0.1)").length).toBeGreaterThan(0);
     });
     expect(screen.getByText("Host metrics")).toBeInTheDocument();
     // 5 sparklines per host (CPU, GPU, Mem, Power, Temp, GPU Temp = 6 here)
     expect(screen.getAllByTestId("sparkline").length).toBeGreaterThan(0);
   });
 
-  it("writes process history from the processes RPC call and lists processes", async () => {
+  it("writes per-host process history from the processes RPC and lists each host's own processes", async () => {
     monitorProcesses.mockResolvedValue({
-      processes: [{ pid: 1, name: "python", cpu_pct: 10 }],
+      timestamp: 1,
+      hosts: [{ host: "10.0.0.1", processes: [{ pid: 1, name: "python", cpu_pct: 10 }] }],
     });
     render(
       <DashboardLive
@@ -225,24 +235,29 @@ describe("DashboardLive", () => {
     expect(screen.getByText("Loading metrics...")).toBeInTheDocument();
   });
 
-  it("shows the local agent hostname and ip when the process RPC returns them", async () => {
+  it("labels each live-agent card with its own hostname and ip, resolving 127.0.0.1 to the real identity", async () => {
     monitorProcesses.mockResolvedValue({
-      processes: [{ pid: 1, name: "systemd", cpu_pct: 2.1 }],
-      hostname: "pidev9",
-      ip_address: "192.168.1.174",
+      timestamp: 1,
+      hosts: [
+        {
+          host: "127.0.0.1",
+          processes: [{ pid: 1, name: "systemd", cpu_pct: 2.1 }],
+          hostname: "spark-c149",
+          ip_address: "192.168.1.77",
+        },
+      ],
     });
     render(
       <DashboardLive
         initial={makeInitial({
-          groups: { g1: { meta: { hosts: ["10.0.0.1"] } } },
+          groups: { g1: { meta: { hosts: ["127.0.0.1"] } } },
         })}
         recipeByCluster={recipeByCluster}
       />,
     );
     await waitFor(() => {
-      expect(screen.getByText(/Local agent/)).toBeInTheDocument();
+      expect(screen.getAllByText("spark-c149 (192.168.1.77)").length).toBeGreaterThan(0);
     });
-    expect(screen.getByText(/pidev9/)).toBeInTheDocument();
-    expect(screen.getByText(/192\.168\.1\.174/)).toBeInTheDocument();
+    expect(screen.queryByText("Local agent")).not.toBeInTheDocument();
   });
 });

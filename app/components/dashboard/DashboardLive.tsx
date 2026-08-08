@@ -25,6 +25,17 @@ function formatHostError(value: unknown): string {
   return JSON.stringify(value);
 }
 
+// Human-readable host label: prefer the agent-reported hostname, appending the
+// real ip when available. Falls back to the raw key (e.g. a still-loading host).
+function hostLabel(
+  key: string,
+  display: Record<string, { hostname?: string; ip_address?: string }>,
+): string {
+  const d = display[key];
+  if (d?.hostname) return d.ip_address ? `${d.hostname} (${d.ip_address})` : d.hostname;
+  return key;
+}
+
 export function DashboardLive({
   initial,
   recipeByCluster,
@@ -68,10 +79,11 @@ export function DashboardLive({
 
   // Process history per host: hostIp -> [ProcessEntry]
   const [processHistory, setProcessHistory] = useState<Record<string, ProcessEntry[]>>({});
-  // Identity of the machine the local agent (process fallback) is running on.
-  const [agentIdentity, setAgentIdentity] = useState<{ hostname?: string; ip_address?: string }>(
-    {},
-  );
+  // Per-host identity reported by each host-local agent, keyed by the candidate
+  // address queried (so "127.0.0.1" resolves to the node's real hostname + ip).
+  const [hostDisplay, setHostDisplay] = useState<
+    Record<string, { hostname?: string; ip_address?: string }>
+  >({});
 
   // Track if process data has been loaded at least once
   const [monitorLoaded, setMonitorLoaded] = useState(false);
@@ -181,20 +193,24 @@ export function DashboardLive({
 
       const newProcessHistory: Record<string, ProcessEntry[]> = {};
       const newMetricHistory: Record<string, Record<string, number[]>> = {};
+      const nextDisplay: Record<string, { hostname?: string; ip_address?: string }> = {};
 
       try {
         const result = await rpc.monitor.processes({ hosts });
         console.log(`[dashboard] RPC processes result:`, result);
 
-        if (result && Array.isArray(result.processes)) {
-          // Result is a flat list — assign to all hosts for now
-          for (const host of hosts) {
-            newProcessHistory[host] = result.processes as ProcessEntry[];
-          }
-
-          // Populate basic metric history so sparklines render
-          for (const host of hosts) {
-            newMetricHistory[host] = {
+        if (result && Array.isArray(result.hosts)) {
+          // Per-host: one entry per live agent. Key by the candidate address so
+          // keys line up with metricHistory, and record the agent-reported
+          // hostname + ip for the label (resolves 127.0.0.1 -> real LAN IP).
+          for (const hostResult of result.hosts) {
+            newProcessHistory[hostResult.host] = (hostResult.processes ?? []) as ProcessEntry[];
+            nextDisplay[hostResult.host] = {
+              hostname: hostResult.hostname,
+              ip_address: hostResult.ip_address,
+            };
+            // Populate basic metric history so sparklines render immediately
+            newMetricHistory[hostResult.host] = {
               cpu_usage_pct: [0],
               mem_used_pct: [0],
               gpu_util_pct: [0],
@@ -204,12 +220,6 @@ export function DashboardLive({
             };
           }
         }
-
-        // Capture the local agent identity (hostname/ip) when the process
-        // fallback surfaced it, so the UI can show which machine is reporting.
-        if (result?.hostname || result?.ip_address) {
-          setAgentIdentity({ hostname: result.hostname, ip_address: result.ip_address });
-        }
       } catch (error) {
         console.warn("[dashboard] RPC processes failed:", error);
       }
@@ -217,6 +227,7 @@ export function DashboardLive({
       if (!cancelled) {
         setMetricHistory((prev) => ({ ...prev, ...newMetricHistory }));
         setProcessHistory(newProcessHistory);
+        setHostDisplay(nextDisplay);
       }
     };
 
@@ -258,76 +269,79 @@ export function DashboardLive({
 
       {/* Individual host metrics with sparklines */}
       <div className="flex flex-col gap-3">
-        {Object.keys(metricHistory).length > 0 || Object.keys(processHistory).length > 0 ? (
+        {Object.keys(processHistory).length > 0 ? (
           <div>
             <h2 className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
               Host metrics
               <span className="ml-2 text-xs text-zinc-500">
-                ({Object.keys(metricHistory).length} hosts)
+                ({Object.keys(processHistory).length} hosts)
               </span>
             </h2>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {Object.entries(metricHistory).map(([hostIp, history]) => (
-                <Card key={hostIp}>
-                  <CardBody className="p-4">
-                    <div className="mb-3 flex items-baseline justify-between">
-                      <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                        {hostIp}
+              {Object.entries(processHistory).map(([hostIp]) => {
+                const history = metricHistory[hostIp] ?? {};
+                return (
+                  <Card key={hostIp}>
+                    <CardBody className="p-4">
+                      <div className="mb-3 flex items-baseline justify-between">
+                        <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                          {hostLabel(hostIp, hostDisplay)}
+                        </div>
+                        <span
+                          className="inline-flex h-2 w-2 rounded-full bg-emerald-500"
+                          title="online"
+                        />
                       </div>
-                      <span
-                        className="inline-flex h-2 w-2 rounded-full bg-emerald-500"
-                        title="online"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <SparklineGraph
-                        title="CPU"
-                        data={history.cpu_usage_pct || []}
-                        color="sky"
-                        unit="%"
-                      />
-                      <SparklineGraph
-                        title="GPU"
-                        data={history.gpu_util_pct || []}
-                        color="purple"
-                        unit="%"
-                      />
-                      <SparklineGraph
-                        title="Mem"
-                        data={history.mem_used_pct || []}
-                        color="green"
-                        unit="%"
-                      />
-                      <SparklineGraph
-                        title="Power"
-                        data={history.gpu_power_w || []}
-                        color="amber"
-                        unit="W"
-                      />
-                      <SparklineGraph
-                        title="Temp"
-                        data={history.cpu_temp_c || []}
-                        color="red"
-                        unit="°C"
-                      />
-                      <SparklineGraph
-                        title="GPU Temp"
-                        data={history.gpu_temp_c || []}
-                        color="red"
-                        unit="°C"
-                      />
-                    </div>
-                    {/* Process list - show top 5 processes */}
-                    <div className="mt-4 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-                      <ProcessList
-                        title="Top Processes"
-                        processes={processHistory[hostIp] || []}
-                        loading={processLoading[hostIp] || false}
-                      />
-                    </div>
-                  </CardBody>
-                </Card>
-              ))}
+                      <div className="grid grid-cols-2 gap-3">
+                        <SparklineGraph
+                          title="CPU"
+                          data={history.cpu_usage_pct || []}
+                          color="sky"
+                          unit="%"
+                        />
+                        <SparklineGraph
+                          title="GPU"
+                          data={history.gpu_util_pct || []}
+                          color="purple"
+                          unit="%"
+                        />
+                        <SparklineGraph
+                          title="Mem"
+                          data={history.mem_used_pct || []}
+                          color="green"
+                          unit="%"
+                        />
+                        <SparklineGraph
+                          title="Power"
+                          data={history.gpu_power_w || []}
+                          color="amber"
+                          unit="W"
+                        />
+                        <SparklineGraph
+                          title="Temp"
+                          data={history.cpu_temp_c || []}
+                          color="red"
+                          unit="°C"
+                        />
+                        <SparklineGraph
+                          title="GPU Temp"
+                          data={history.gpu_temp_c || []}
+                          color="red"
+                          unit="°C"
+                        />
+                      </div>
+                      {/* Process list - show top 5 processes */}
+                      <div className="mt-4 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+                        <ProcessList
+                          title="Top Processes"
+                          processes={processHistory[hostIp] || []}
+                          loading={processLoading[hostIp] || false}
+                        />
+                      </div>
+                    </CardBody>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         ) : (
@@ -352,19 +366,13 @@ export function DashboardLive({
               ({Object.keys(processHistory).length} hosts)
             </span>
           </h2>
-          {agentIdentity.hostname && (
-            <div className="mb-2 text-xs text-zinc-500">
-              Local agent: <span className="font-mono">{agentIdentity.hostname}</span>
-              {agentIdentity.ip_address && <> ({agentIdentity.ip_address})</>}
-            </div>
-          )}
           <div className="grid grid-cols-1 gap-4">
             {Object.entries(processHistory).map(([hostIp, processes]) => (
               <Card key={hostIp}>
                 <CardBody className="p-4">
                   <div className="mb-3 flex items-baseline justify-between">
                     <div className="font-mono text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                      {hostIp}
+                      {hostLabel(hostIp, hostDisplay)}
                     </div>
                     <span
                       className="inline-flex h-2 w-2 rounded-full bg-emerald-500"
@@ -380,16 +388,6 @@ export function DashboardLive({
               </Card>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Show process list cards even when metrics are empty but process data exists */}
-      {Object.keys(metricHistory).length === 0 && Object.keys(processHistory).length > 0 && (
-        <div className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Process Data Available
-            <span className="ml-2 text-xs text-zinc-500">(metrics loading from agents)</span>
-          </h2>
         </div>
       )}
 
