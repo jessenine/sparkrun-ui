@@ -12,22 +12,22 @@ active_flow: null         # PR #2 + PR #3 merged; all bug work landed
 # agent-build ARM64 workflow fixed (added agent Dockerfile, dropped unused axum-server/tower/http-body-util deps).
 git:
   branch: main
-  commit: 7fa07bd
-  status: clean          # clean | dirty
+  commit: fc6fa69
+  status: clean          # clean | dirty (only tracked agent target/ release binaries rebuilt locally)
   origin: "https://github.com/jessenine/sparkrun-ui.git"
 handoff:
-  next_skill: release-branch    # land fix/land-monitor-agent-metrics (3 bugs) on main via PR
+  next_skill: deploy-agent    # DECIDED (2026-08-08): redeploy the new agent — merged bug fixes are inert until shipped to nodes
   completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan, release-branch]
 metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
-  story_progress: 100  # overall coverage 80.07% stmts (from 18.5%), 355 tests passing, 38 commits ahead
-  tests: 355 # passing; 5 skipped (compat)
-  components_coverage: "80.07% statements overall (from 12.7%)"
+  story_progress: 100  # coverage 80.07% stmts; PR #2 + PR #3 merged; 3 bugs landed
+  tests: 359 # passing; 5 skipped (compat)
+  components_coverage: "80.07% statements overall"
 outstanding_work:
-  - "heavy components: LaunchWizard, NewBenchmarkForm, DashboardLive, BenchmarkCharts (recharts), RecipeInfoPopover, RecipeShowDialog/YamlEditor (CodeMirror)"
-  - "E2E (Playwright) — test plan Phase 8, not yet started"
-  - "raise overall coverage (currently ~41% statements) toward 80% gate"
-  - "git push origin main (unpushed: EACCES fix 838e5ab)"
+  - "#1 (best) REDEPLOY agent: merged bug fixes are not live on any node. agent-build deploy job skips on PR (only main push/workflow_dispatch, targets 192.168.1.22). Confirm AGENT_CLUSTER* secrets, trigger workflow_dispatch deploy, smoke-test /processes (non-zero CPU%, hostname/ip). Fallback: ship target/release binary + systemd per node (as dev smoke did on pidev9/192.168.1.174)."
+  - "#2 (cleanup) delete superseded branches: fix/monitor-agent-metrics, now-merged fix/land-monitor-agent-metrics (local + remote)"
+  - "#3 E2E (Playwright) — test plan Phase 8, not yet started"
+  - "#4 optional: clap -h collision (host vs help, debug-only panic); untrack agent target/ build artifacts; lightweight docker build smoke for agent-build"
 release_gates:
   passed:
     - "213 tests pass, 5 skipped (compat)"
