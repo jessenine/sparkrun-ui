@@ -23,7 +23,11 @@ async function fetchFromHostAgent(): Promise<{
         console.warn("[monitor.processes] Host agent returned status", response.status);
         return null;
       }
-      const data = await response.json() as { processes?: ProcessEntry[]; hostname?: string; ip_address?: string };
+      const data = (await response.json()) as {
+        processes?: ProcessEntry[];
+        hostname?: string;
+        ip_address?: string;
+      };
       return {
         processes: data.processes ?? [],
         hostname: data.hostname,
@@ -60,16 +64,20 @@ const HostMetricsSchema = z
     gpu_power_limit_w: z.string().optional(),
     sparkrun_jobs: z.string().optional(),
     sparkrun_job_names: z.string().optional(),
-    processes: z.union([
-      z.array(z.object({
-        user: z.string(),
-        pid: z.number(),
-        cpu: z.number(),
-        mem: z.number(),
-        command: z.string(),
-      })),  // Top 5 processes by CPU (already parsed)
-      z.string(),  // Raw JSON string (needs parsing)
-    ]).optional(),
+    processes: z
+      .union([
+        z.array(
+          z.object({
+            user: z.string(),
+            pid: z.number(),
+            cpu: z.number(),
+            mem: z.number(),
+            command: z.string(),
+          }),
+        ), // Top 5 processes by CPU (already parsed)
+        z.string(), // Raw JSON string (needs parsing)
+      ])
+      .optional(),
   })
   .loose();
 
@@ -154,44 +162,52 @@ export const stream = os
         intervalSec: z.number().int().min(1).max(30).default(2),
       })
       .optional(),
-    )
-    .output(eventIterator(TickSchema))
-    .handler(async function* ({ input, signal }) {
-      const args = monitorArgs(input, input?.intervalSec ?? 2);
-      console.log("[monitor.stream] Running command:", args.join(" "));
-      try {
-        for await (const obj of streamSparkrunNdjson<unknown>(args, { signal }) as AsyncIterable<unknown>) {
-          if (signal?.aborted) break;
-          console.log("[monitor.stream] Raw obj:", JSON.stringify(obj));
-          const normalized = normalizeMonitorOutput(obj);
-          console.log("[monitor.stream] Normalized:", JSON.stringify(normalized));
-          yield normalized;
-        }
-      } catch (err) {
-        console.warn("[monitor.stream] sparkrun unavailable, yielding empty tick:", err);
-        yield { timestamp: Date.now(), hosts: {} };
+  )
+  .output(eventIterator(TickSchema))
+  .handler(async function* ({ input, signal }) {
+    const args = monitorArgs(input, input?.intervalSec ?? 2);
+    console.log("[monitor.stream] Running command:", args.join(" "));
+    try {
+      for await (const obj of streamSparkrunNdjson<unknown>(args, {
+        signal,
+      }) as AsyncIterable<unknown>) {
+        if (signal?.aborted) break;
+        console.log("[monitor.stream] Raw obj:", JSON.stringify(obj));
+        const normalized = normalizeMonitorOutput(obj);
+        console.log("[monitor.stream] Normalized:", JSON.stringify(normalized));
+        yield normalized;
       }
-    });
+    } catch (err) {
+      console.warn("[monitor.stream] sparkrun unavailable, yielding empty tick:", err);
+      yield { timestamp: Date.now(), hosts: {} };
+    }
+  });
 
 export const processes = os
   .input(
-    z.object({
-      cluster: z.string().regex(namePattern).optional(),
-      hosts: z.array(z.string().regex(namePattern)).optional(),
-    }).optional(),
+    z
+      .object({
+        cluster: z.string().regex(namePattern).optional(),
+        hosts: z.array(z.string().regex(namePattern)).optional(),
+      })
+      .optional(),
   )
-  .output(z.object({
-    timestamp: z.number(),
-    hostname: z.string().optional(),
-    ip_address: z.string().optional(),
-    processes: z.array(z.object({
-      user: z.string(),
-      pid: z.number(),
-      cpu: z.number(),
-      mem: z.number(),
-      command: z.string(),
-    })),
-  }))
+  .output(
+    z.object({
+      timestamp: z.number(),
+      hostname: z.string().optional(),
+      ip_address: z.string().optional(),
+      processes: z.array(
+        z.object({
+          user: z.string(),
+          pid: z.number(),
+          cpu: z.number(),
+          mem: z.number(),
+          command: z.string(),
+        }),
+      ),
+    }),
+  )
   .handler(async function ({ input, signal }) {
     // Fetch a single snapshot from the monitor stream.
     // sparkrun cluster monitor --json streams process data per host.
@@ -206,7 +222,9 @@ export const processes = os
     const allProcesses: ProcessEntry[] = [];
     let gotData = false;
 
-    for await (const obj of streamSparkrunNdjson<unknown>(args, { signal }) as AsyncIterable<unknown>) {
+    for await (const obj of streamSparkrunNdjson<unknown>(args, {
+      signal,
+    }) as AsyncIterable<unknown>) {
       if (signal?.aborted) break;
       if (gotData) break; // Only one tick with data needed
 
@@ -247,8 +265,12 @@ export const processes = os
       // Fallback: try the host-local agent (runs outside container with proper SSH/sparkrun access)
       const agentData = await fetchFromHostAgent();
       if (agentData && agentData.processes.length > 0) {
-        console.log("[monitor.processes] Falling back to host agent —", agentData.processes.length, "processes");
-        const valid = agentData.processes.filter(p => !isNaN(p.cpu) && !isNaN(p.mem));
+        console.log(
+          "[monitor.processes] Falling back to host agent —",
+          agentData.processes.length,
+          "processes",
+        );
+        const valid = agentData.processes.filter((p) => !isNaN(p.cpu) && !isNaN(p.mem));
         valid.sort((a, b) => b.cpu - a.cpu);
         return {
           timestamp: Date.now(),
@@ -262,7 +284,7 @@ export const processes = os
 
     // Filter out entries where cpu or mem is NaN before sorting
     // to prevent unstable sort and Zod runtime rejection
-    const valid = allProcesses.filter(p => !isNaN(p.cpu) && !isNaN(p.mem));
+    const valid = allProcesses.filter((p) => !isNaN(p.cpu) && !isNaN(p.mem));
 
     // Sort by CPU descending and return top 10
     valid.sort((a, b) => b.cpu - a.cpu);

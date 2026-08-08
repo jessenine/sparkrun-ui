@@ -72,7 +72,11 @@ describe("monitor.stream", () => {
         {
           timestamp: 1,
           hosts: [
-            { host: "dead", error: "ssh: connect refused", sample: { hostname: "dead", cpu_usage_pct: "0" } },
+            {
+              host: "dead",
+              error: "ssh: connect refused",
+              sample: { hostname: "dead", cpu_usage_pct: "0" },
+            },
             { host: "empty", error: null, sample: null },
             { host: "alive", error: null, sample: { hostname: "alive", cpu_usage_pct: "45" } },
           ],
@@ -86,7 +90,9 @@ describe("monitor.stream", () => {
 
   it("excludes flat-record hosts whose sample is an empty object", async () => {
     mocks.streamSparkrunNdjson.mockReturnValue(
-      streamOf([{ timestamp: 1, hosts: { dead: {}, alive: { hostname: "alive", cpu_usage_pct: "10" } } }]),
+      streamOf([
+        { timestamp: 1, hosts: { dead: {}, alive: { hostname: "alive", cpu_usage_pct: "10" } } },
+      ]),
     );
     const gen = handler(stream)({ input: undefined, signal: undefined }) as AsyncGenerator<Tick>;
     const tick = (await gen.next()).value as Tick;
