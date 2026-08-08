@@ -1,59 +1,103 @@
-import { describe, expect, it, afterAll } from "vitest";
-import { writeDraft, deleteDraft } from "./draft";
-import { readFileSync, existsSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Use a test-specific directory to avoid polluting the real DRAFT_DIR
-// We'll mock the internal DRAFT_DIR by creating our own test dir
-const TEST_DRAFT_DIR = join(__dirname, "__test_drafts__");
+const mocks = vi.hoisted(() => ({
+  mkdir: vi.fn(),
+  chmod: vi.fn(),
+  writeFile: vi.fn(),
+  readFile: vi.fn(),
+  unlink: vi.fn(),
+  readdir: vi.fn(),
+  stat: vi.fn(),
+  tmpdir: vi.fn(),
+}));
 
-// Clean up after tests
-afterAll(() => {
-  if (existsSync(TEST_DRAFT_DIR)) {
-    rmSync(TEST_DRAFT_DIR, { recursive: true, force: true });
-  }
+vi.mock("node:fs/promises", () => ({
+  mkdir: mocks.mkdir,
+  chmod: mocks.chmod,
+  writeFile: mocks.writeFile,
+  readFile: mocks.readFile,
+  unlink: mocks.unlink,
+  readdir: mocks.readdir,
+  stat: mocks.stat,
+}));
+
+vi.mock("node:os", () => ({
+  tmpdir: () => "/tmp",
+}));
+
+import { writeDraft, writeDraftMeta, readDraftMeta, deleteDraft } from "./draft";
+
+beforeEach(() => {
+  mocks.mkdir.mockResolvedValue(undefined);
+  mocks.chmod.mockResolvedValue(undefined);
+  mocks.writeFile.mockResolvedValue(undefined);
+  mocks.readdir.mockResolvedValue([]);
 });
 
-describe("draft lifecycle (P0 scenarios from TEST_PLAN_LATEST.md)", () => {
-  // SC-P0-21: writeDraft creates file in DRAFT_DIR with correct .yaml extension
-  describe("writeDraft", () => {
-    it("creates a file with .yaml extension (SC-P0-21)", async () => {
-      // Write a draft
-      const path = await writeDraft("test_p0_21", "test yaml content");
-      
-      // Verify file exists
-      expect(existsSync(path)).toBe(true);
-      expect(path.endsWith(".yaml")).toBe(true);
-    });
+afterEach(() => vi.clearAllMocks());
 
-    it("rejects draftIds with invalid characters (SC-P0-22)", async () => {
-      // Should throw on invalid chars
-      await expect(writeDraft("invalid id!", "yaml")).rejects.toThrow("Invalid draftId");
-      await expect(writeDraft("path/../to", "yaml")).rejects.toThrow("Invalid draftId");
-      await expect(writeDraft("spaces here", "yaml")).rejects.toThrow("Invalid draftId");
-    });
+describe("writeDraft", () => {
+  it("creates the dir, reaps stale files, and writes the yaml", async () => {
+    const p = writeDraft("abc123", "model: qwen");
+    await expect(p).resolves.toMatch(/drafts\/abc123\.yaml$/);
+    expect(mocks.mkdir).toHaveBeenCalled();
+    expect(mocks.chmod).toHaveBeenCalledWith("/tmp/sparkrun-ui-drafts", 0o777);
+    expect(mocks.writeFile).toHaveBeenCalledWith(
+      expect.stringMatching(/abc123\.yaml$/),
+      "model: qwen",
+      "utf8",
+    );
+  });
 
-    it("preserves yaml content exactly", async () => {
-      const yaml = "key: value\nnested:\n  foo: bar\n";
-      const path = await writeDraft("test_content", yaml);
-      
-      const content = readFileSync(path, "utf8");
-      expect(content).toBe(yaml);
-    });
+  it("deletes stale files during reap", async () => {
+    mocks.readdir.mockResolvedValue(["old.yaml"]);
+    mocks.stat.mockResolvedValue({ mtimeMs: Date.now() - 61 * 60 * 1000 });
+    await writeDraft("x", "y");
+    expect(mocks.unlink).toHaveBeenCalledWith(expect.stringMatching(/old\.yaml$/));
+  });
 
-    it("returns absolute path", async () => {
-      const path = await writeDraft("test_path", "content");
-      expect(path.startsWith("/")).toBe(true);
-      expect(path.includes("sparkrun-ui-drafts")).toBe(true);
-    });
+  it("keeps fresh files", async () => {
+    mocks.readdir.mockResolvedValue(["fresh.yaml"]);
+    mocks.stat.mockResolvedValue({ mtimeMs: Date.now() });
+    await writeDraft("x", "y");
+    expect(mocks.unlink).not.toHaveBeenCalled();
+  });
 
-    it("deletes the created draft", async () => {
-      const yaml = "test: content";
-      const path = await writeDraft("test_delete", yaml);
-      expect(existsSync(path)).toBe(true);
-      
-      await deleteDraft("test_delete");
-      expect(existsSync(path)).toBe(false);
-    });
+  it("throws on an invalid draftId", async () => {
+    await expect(writeDraft("bad id!", "y")).rejects.toThrow(/Invalid draftId/);
+    expect(mocks.writeFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("writeDraftMeta / readDraftMeta", () => {
+  it("writes and reads metadata", async () => {
+    mocks.writeFile.mockResolvedValue(undefined);
+    await writeDraftMeta("d1", { recipeName: "r" });
+    expect(mocks.writeFile).toHaveBeenCalledWith(
+      expect.stringMatching(/d1\.meta\.json$/),
+      JSON.stringify({ recipeName: "r" }),
+      "utf8",
+    );
+
+    mocks.readFile.mockResolvedValue(JSON.stringify({ recipeName: "r" }));
+    await expect(readDraftMeta("d1")).resolves.toEqual({ recipeName: "r" });
+  });
+
+  it("returns null when metadata is missing", async () => {
+    mocks.readFile.mockRejectedValue(new Error("ENOENT"));
+    await expect(readDraftMeta("d1")).resolves.toBeNull();
+  });
+});
+
+describe("deleteDraft", () => {
+  it("unlinks the yaml", async () => {
+    mocks.unlink.mockResolvedValue(undefined);
+    await deleteDraft("d1");
+    expect(mocks.unlink).toHaveBeenCalledWith(expect.stringMatching(/d1\.yaml$/));
+  });
+
+  it("ignores unlink errors", async () => {
+    mocks.unlink.mockRejectedValue(new Error("ENOENT"));
+    await expect(deleteDraft("d1")).resolves.toBeUndefined();
   });
 });

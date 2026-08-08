@@ -1,47 +1,87 @@
-import { createServer } from "node:net";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  createConnection: vi.fn(),
+}));
+
+vi.mock("node:net", () => ({
+  createConnection: mocks.createConnection,
+}));
+
 import { probePort, probePortsParallel } from "./portCheck";
 
-async function listen() {
-  const srv = createServer();
-  await new Promise<void>((res) => srv.listen(0, "127.0.0.1", res));
-  const addr = srv.address();
-  const port = typeof addr === "object" && addr ? addr.port : 0;
-  return { srv, port };
+const originalTimeout = globalThis.setTimeout;
+
+function fakeSocket(
+  events: { connect?: () => void; error?: () => void; destroy?: () => void } = {},
+) {
+  const listeners: Record<string, (() => void)[]> = {};
+  const socket = {
+    once(ev: string, cb: () => void) {
+      (listeners[ev] ||= []).push(cb);
+    },
+    destroy: events.destroy ?? (() => {}),
+    end: () => {},
+    _triggerConnect() {
+      listeners.connect?.forEach((cb) => cb());
+    },
+    _triggerError() {
+      listeners.error?.forEach((cb) => cb());
+    },
+  };
+  return socket;
 }
 
-describe("probePort (SC-P1-29)", () => {
-  it("returns true when the port is open", async () => {
-    const { srv, port } = await listen();
-    try {
-      await expect(probePort("127.0.0.1", port, 500)).resolves.toBe(true);
-    } finally {
-      srv.close();
-    }
+afterEach(() => {
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
+});
+
+describe("probePort", () => {
+  it("resolves true on connect", async () => {
+    const socket = fakeSocket();
+    mocks.createConnection.mockReturnValue(socket);
+    const p = probePort("h", 8000, 250);
+    socket._triggerConnect();
+    await expect(p).resolves.toBe(true);
   });
 
-  it("returns false when the port is closed", async () => {
-    // Grab an ephemeral port then release it so nothing is listening.
-    const { srv, port } = await listen();
-    await new Promise<void>((res) => srv.close(() => res()));
-    await expect(probePort("127.0.0.1", port, 300)).resolves.toBe(false);
+  it("resolves false on error", async () => {
+    const socket = fakeSocket();
+    mocks.createConnection.mockReturnValue(socket);
+    const p = probePort("h", 8000, 250);
+    socket._triggerError();
+    await expect(p).resolves.toBe(false);
   });
 
-  it("returns false on an unreachable address", async () => {
-    await expect(probePort("203.0.113.1", 1, 300)).resolves.toBe(false);
+  it("resolves false on timeout by destroying the socket", async () => {
+    let timerCb: (() => void) | undefined;
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(((cb: () => void) => {
+      timerCb = cb;
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof globalThis.setTimeout);
+    const socket = fakeSocket({ destroy: () => {} });
+    const destroySpy = vi.spyOn(socket, "destroy");
+    mocks.createConnection.mockReturnValue(socket);
+    const p = probePort("h", 8000, 250);
+    timerCb?.();
+    await expect(p).resolves.toBe(false);
+    expect(destroySpy).toHaveBeenCalled();
+    void originalTimeout;
   });
 });
 
-describe("probePortsParallel (SC-P1-30)", () => {
-  it("returns one result per host in order", async () => {
-    const { srv, port } = await listen();
-    try {
-      const results = await probePortsParallel(["127.0.0.1", "192.0.2.1"], port);
-      expect(results).toHaveLength(2);
-      expect(results[0]).toEqual({ host: "127.0.0.1", inUse: true });
-      expect(results[1]).toEqual({ host: "192.0.2.1", inUse: false });
-    } finally {
-      srv.close();
-    }
+describe("probePortsParallel", () => {
+  it("probes each host and reports inUse", async () => {
+    const s1 = fakeSocket();
+    const s2 = fakeSocket();
+    mocks.createConnection.mockReturnValueOnce(s1).mockReturnValueOnce(s2);
+    const p = probePortsParallel(["h1", "h2"], 8000);
+    s1._triggerConnect();
+    s2._triggerError();
+    await expect(p).resolves.toEqual([
+      { host: "h1", inUse: true },
+      { host: "h2", inUse: false },
+    ]);
   });
 });
