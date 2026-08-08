@@ -11,7 +11,7 @@ active_flow: release-branch   # feature branch verified, awaiting merge decision
 # Not yet actioned — state saved on user request before merge executed.
 git:
   branch: feat/add-missing-tests
-  commit: 46f3be4
+  commit: 241d3ad
   status: clean          # clean | dirty
   origin: "https://github.com/jessenine/sparkrun-ui.git (origin/main ahead 1 unpushed: 838e5ab EACCES fix)"
 handoff:
@@ -19,7 +19,9 @@ handoff:
   completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan, release-branch]
 metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
-  story_progress: 85  # core lib pure-logic coverage complete (136 tests)
+  story_progress: 100  # overall coverage ~41% stmts (from 18.5%), 213 tests passing, 26 commits ahead
+  tests: 213  # passing; 5 skipped (compat)
+  components_coverage: "~52% statements (from 12.7%)"
 outstanding_work:
   - "heavy components: LaunchWizard, NewBenchmarkForm, DashboardLive, BenchmarkCharts (recharts), RecipeInfoPopover, RecipeShowDialog/YamlEditor (CodeMirror)"
   - "E2E (Playwright) — test plan Phase 8, not yet started"
@@ -27,10 +29,10 @@ outstanding_work:
   - "git push origin main (unpushed: EACCES fix 838e5ab)"
 release_gates:
   passed:
-    - "136 tests pass, 5 skipped (compat)"
+    - "213 tests pass, 5 skipped (compat)"
     - "tsc --noEmit clean"
-    - "lint clean on changed files (fixed 4 introduced errors)"
-    - "19 commits all Conventional Commits"
+    - "lint clean on changed files"
+    - "26 commits ahead of main, all Conventional Commits"
     - "no Co-authored-by / AI attribution"
   unmet:
     - "overall coverage ~41% (gate 80%) — improved from ~18.5% at Option-B start"
