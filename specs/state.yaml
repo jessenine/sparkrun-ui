@@ -18,9 +18,9 @@ handoff:
   completed_skills: [investigate-bug, audit-code, develop-tdd, validate-fix, test-plan, release-branch]
 metrics:
   story_start: "2026-08-07T18:57:00Z"  # test plan creation
-  story_progress: 100  # overall coverage ~41% stmts (from 18.5%), 213 tests passing, 26 commits ahead
-  tests: 213  # passing; 5 skipped (compat)
-  components_coverage: "~52% statements (from 12.7%)"
+  story_progress: 100  # overall coverage 80.07% stmts (from 18.5%), 355 tests passing, 38 commits ahead
+  tests: 355 # passing; 5 skipped (compat)
+  components_coverage: "80.07% statements overall (from 12.7%)"
 outstanding_work:
   - "heavy components: LaunchWizard, NewBenchmarkForm, DashboardLive, BenchmarkCharts (recharts), RecipeInfoPopover, RecipeShowDialog/YamlEditor (CodeMirror)"
   - "E2E (Playwright) — test plan Phase 8, not yet started"
@@ -34,8 +34,6 @@ release_gates:
     - "26 commits ahead of main, all Conventional Commits"
     - "no Co-authored-by / AI attribution"
   unmet:
-    - "overall coverage ~41% (gate 80%) — improved from ~18.5% at Option-B start"
-    - "app/components statements ~52% (improved from 12.7%)"
     - "no specs/security/REVIEW.md"
     - "no traceability matrix (gate-trace)"
 completed_work:
@@ -54,6 +52,8 @@ completed_work:
   - "test(metrics-collector): parseMetricNdjson (RED/GREEN)"
   - "test(disk): parseDfOutput (RED/GREEN)"
   - "scripts/verify-tdd-red-commit.sh: TDD cycle enforcement script"
+  - "test batch: AnimatedBackground (98%), BenchmarkCharts (84%), RecipeShowDialog (90%), RecipeInfoPopover (88%), Textarea, YamlEditor (86%) — pushed coverage to 77%"
+  - "REACHED 80% STATEMENTS GATE: 80.07% (2226/2780), lines 83.07%, 355 passed / 5 skipped, typecheck clean"
 epic:
   current_epic_id: e01
   current_story_id: e01s05
