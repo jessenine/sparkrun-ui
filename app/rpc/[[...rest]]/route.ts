@@ -20,7 +20,12 @@ async function handle(request: Request): Promise<Response> {
       context: {},
     });
     if (response) {
-      console.log("[rpc] Response:", response.status, response.statusText, response.headers.get("content-type"));
+      console.log(
+        "[rpc] Response:",
+        response.status,
+        response.statusText,
+        response.headers.get("content-type"),
+      );
       return response;
     }
     console.log("[rpc] No response from ORPC handler for:", request.url);

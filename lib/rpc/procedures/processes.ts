@@ -24,12 +24,12 @@ export interface ProcessList {
  */
 export function normalizeProcessList(psAuxOutput: string): ProcessList {
   const lines = psAuxOutput.trim().split("\n");
-  
+
   // Skip header row
-  const dataLines = lines.slice(1).filter(line => line.trim().length > 0);
-  
+  const dataLines = lines.slice(1).filter((line) => line.trim().length > 0);
+
   const processes: ProcessEntry[] = [];
-  
+
   for (const line of dataLines) {
     // `ps aux` output has two possible formats:
     //
@@ -43,9 +43,9 @@ export function normalizeProcessList(psAuxOutput: string): ProcessList {
     // after field 3 (short) or after field 9 (full). We detect the
     // format by counting headers from the first data line.
     const parts = line.trim().split(/\s+/);
-    
+
     if (parts.length < 5) continue;
-    
+
     const user = parts[0];
     const pid = parseInt(parts[1], 10);
     const cpu = parseFloat(parts[2]);
@@ -63,8 +63,8 @@ export function normalizeProcessList(psAuxOutput: string): ProcessList {
       let fieldCount = 0;
       let commandStart = 0;
       for (let i = 0; i < line.length; i++) {
-        if (line[i] === ' ' || line[i] === '\t') {
-          while (i + 1 < line.length && (line[i + 1] === ' ' || line[i + 1] === '\t')) i++;
+        if (line[i] === " " || line[i] === "\t") {
+          while (i + 1 < line.length && (line[i + 1] === " " || line[i + 1] === "\t")) i++;
           fieldCount++;
           if (fieldCount === 10) {
             commandStart = i + 1;
@@ -78,16 +78,16 @@ export function normalizeProcessList(psAuxOutput: string): ProcessList {
       const commandStartIndex = line.indexOf(parts[4]);
       command = commandStartIndex >= 0 ? line.substring(commandStartIndex).trim() : "";
     }
-    
+
     // Filter out NaN cpu/mem values to prevent downstream crashes
     if (isNaN(cpu) || isNaN(mem)) continue;
 
     processes.push({ user, pid, cpu, mem, command });
   }
-  
+
   // Sort by CPU descending and take top 5
   processes.sort((a, b) => b.cpu - a.cpu);
-  
+
   return {
     timestamp: Date.now(),
     processes: processes.slice(0, 5),

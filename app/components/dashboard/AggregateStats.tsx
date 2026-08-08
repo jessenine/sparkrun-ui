@@ -74,7 +74,7 @@ function aggregate(tick: Tick | null, diskInfo: DiskUsage[]): Aggregate {
     jobs += num(m.sparkrun_jobs);
   }
   const n = hosts.length || 1;
-  
+
   // Calculate total disk usage from the disk info
   let totalDiskUsed = 0;
   let totalDiskTotal = 0;
@@ -82,7 +82,7 @@ function aggregate(tick: Tick | null, diskInfo: DiskUsage[]): Aggregate {
     totalDiskUsed += d.used_gb;
     totalDiskTotal += d.size_gb;
   }
-  
+
   return {
     hostCount: hosts.length,
     cpuAvg: cpuSum / n,

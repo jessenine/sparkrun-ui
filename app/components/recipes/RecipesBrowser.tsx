@@ -114,7 +114,12 @@ export function RecipesBrowser({ recipes, runningRecipes }: RecipeBrowserProps) 
       try {
         const withCategory = await rpc.recipes.listWithCategory({ all: true });
         if (!controller.signal.aborted) {
-          setCategories(withCategory.map((r: { name: string; category?: string }) => ({ name: r.name, category: r.category ?? "general" })));
+          setCategories(
+            withCategory.map((r: { name: string; category?: string }) => ({
+              name: r.name,
+              category: r.category ?? "general",
+            })),
+          );
         }
       } catch (e) {
         console.warn("[RecipesBrowser] Category fetch failed:", e);
@@ -185,7 +190,8 @@ export function RecipesBrowser({ recipes, runningRecipes }: RecipeBrowserProps) 
     })),
   ];
 
-  const hasActiveFilters = registry !== "all" || search !== "" || showRunningOnly || dgxOnly || category !== "all";
+  const hasActiveFilters =
+    registry !== "all" || search !== "" || showRunningOnly || dgxOnly || category !== "all";
   const dgxFetching = !dgxFetched;
   const dgxFitCount = useMemo(() => {
     if (!dgxFetched) return 0;
@@ -237,7 +243,9 @@ export function RecipesBrowser({ recipes, runningRecipes }: RecipeBrowserProps) 
             <Cpu size={14} className={dgxFetching ? "animate-spin" : ""} />
             <span>DGX Spark</span>
             {dgxFetched && (
-              <span className="text-zinc-400">({dgxFitCount}/{effectiveRecipes.length})</span>
+              <span className="text-zinc-400">
+                ({dgxFitCount}/{effectiveRecipes.length})
+              </span>
             )}
           </label>
           <div className="flex items-center gap-1">
@@ -255,7 +263,7 @@ export function RecipesBrowser({ recipes, runningRecipes }: RecipeBrowserProps) 
                   key={value}
                   type="button"
                   onClick={() => setCategory(isActive ? "all" : value)}
-                  className={`flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs select-none transition-colors ${
+                  className={`flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors select-none ${
                     isActive
                       ? "bg-zinc-200 font-medium text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
                       : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
@@ -348,12 +356,24 @@ export function RecipesBrowser({ recipes, runningRecipes }: RecipeBrowserProps) 
                           <td className="px-4 py-2 text-xs">
                             {r.category ? (
                               <div className="flex items-center gap-1">
-                                {r.category === "coding" && <Code size={12} className="text-sky-500" />}
-                                {r.category === "reasoning" && <Brain size={12} className="text-purple-500" />}
-                                {r.category === "vision" && <Camera size={12} className="text-emerald-500" />}
-                                {r.category === "diffusion" && <Zap size={12} className="text-amber-500" />}
-                                {r.category === "general" && <Sparkles size={12} className="text-zinc-400" />}
-                                <span className="capitalize text-zinc-600 dark:text-zinc-400">{r.category}</span>
+                                {r.category === "coding" && (
+                                  <Code size={12} className="text-sky-500" />
+                                )}
+                                {r.category === "reasoning" && (
+                                  <Brain size={12} className="text-purple-500" />
+                                )}
+                                {r.category === "vision" && (
+                                  <Camera size={12} className="text-emerald-500" />
+                                )}
+                                {r.category === "diffusion" && (
+                                  <Zap size={12} className="text-amber-500" />
+                                )}
+                                {r.category === "general" && (
+                                  <Sparkles size={12} className="text-zinc-400" />
+                                )}
+                                <span className="text-zinc-600 capitalize dark:text-zinc-400">
+                                  {r.category}
+                                </span>
                               </div>
                             ) : (
                               <span className="text-zinc-400">—</span>

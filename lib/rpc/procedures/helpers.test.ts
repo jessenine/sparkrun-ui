@@ -35,7 +35,7 @@ describe("resolveTargetHosts", () => {
   });
 
   it("throws when named cluster not found", async () => {
-    const clusterList: ClusterEntry[] = [{ name: "dgx1", hosts: [] , default: false}];
+    const clusterList: ClusterEntry[] = [{ name: "dgx1", hosts: [], default: false }];
     vi.mocked(runSparkrunJson).mockResolvedValue(clusterList as never);
     await expect(resolveTargetHosts(undefined, "missing")).rejects.toThrow(
       "Cluster missing not found",

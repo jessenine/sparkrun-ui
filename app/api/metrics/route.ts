@@ -1,4 +1,8 @@
-import { collectMetrics, startMetricsCollection, stopMetricsCollection } from "@/lib/metrics-collector";
+import {
+  collectMetrics,
+  startMetricsCollection,
+  stopMetricsCollection,
+} from "@/lib/metrics-collector";
 
 // Start metrics collection when the app starts
 if (typeof process !== "undefined" && process.env && !process.env.NEXT_PHASE) {

@@ -49,16 +49,14 @@ export function ProcessList({
     <>
       <div className={`flex flex-col gap-2 ${className}`}>
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-            {title}
-          </h3>
+          <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{title}</h3>
           <div className="flex items-center gap-2">
             <span className="text-xs text-zinc-500">Sort by:</span>
             <button
               onClick={() => setSortBy("cpu")}
-              className={`text-xs px-2 py-1 rounded transition-colors ${
+              className={`rounded px-2 py-1 text-xs transition-colors ${
                 sortBy === "cpu"
-                  ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-semibold"
+                  ? "bg-zinc-200 font-semibold text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
                   : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
               }`}
             >
@@ -66,9 +64,9 @@ export function ProcessList({
             </button>
             <button
               onClick={() => setSortBy("mem")}
-              className={`text-xs px-2 py-1 rounded transition-colors ${
+              className={`rounded px-2 py-1 text-xs transition-colors ${
                 sortBy === "mem"
-                  ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-semibold"
+                  ? "bg-zinc-200 font-semibold text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100"
                   : "text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
               }`}
             >
@@ -80,7 +78,7 @@ export function ProcessList({
           <p className="text-xs text-zinc-500">No process data available</p>
         ) : loading ? (
           <div className="flex items-center justify-center py-4">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-zinc-300 border-t-transparent animate-spin" />
+            <div className="flex h-6 w-6 animate-spin items-center justify-center rounded-full border-2 border-zinc-300 border-t-transparent" />
             <span className="ml-2 text-xs text-zinc-500">Loading process data...</span>
           </div>
         ) : (
@@ -88,25 +86,34 @@ export function ProcessList({
             <table className="w-full text-xs">
               <thead className="text-zinc-500">
                 <tr>
-                  <th className="text-left py-1">USER</th>
-                  <th className="text-right py-1">PID</th>
-                  <th className="text-right py-1">CPU%</th>
-                  <th className="text-right py-1">MEM%</th>
-                  <th className="text-left py-1">COMMAND</th>
+                  <th className="py-1 text-left">USER</th>
+                  <th className="py-1 text-right">PID</th>
+                  <th className="py-1 text-right">CPU%</th>
+                  <th className="py-1 text-right">MEM%</th>
+                  <th className="py-1 text-left">COMMAND</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedProcesses.slice(0, 5).map((p) => (
                   <tr
                     key={p.pid}
-                    className="border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer"
+                    className="cursor-pointer border-b border-zinc-100 last:border-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
                     onClick={() => handleProcessClick(p)}
                   >
-                    <td className="py-1 text-zinc-600 dark:text-zinc-400 font-mono">{p.user}</td>
-                    <td className="py-1 text-zinc-600 dark:text-zinc-400 text-right font-mono">{p.pid}</td>
-                    <td className="py-1 text-zinc-600 dark:text-zinc-400 text-right font-mono">{p.cpu.toFixed(1)}</td>
-                    <td className="py-1 text-zinc-600 dark:text-zinc-400 text-right font-mono">{p.mem.toFixed(1)}</td>
-                    <td className="py-1 text-zinc-900 dark:text-zinc-100 font-mono truncate" title={p.command}>
+                    <td className="py-1 font-mono text-zinc-600 dark:text-zinc-400">{p.user}</td>
+                    <td className="py-1 text-right font-mono text-zinc-600 dark:text-zinc-400">
+                      {p.pid}
+                    </td>
+                    <td className="py-1 text-right font-mono text-zinc-600 dark:text-zinc-400">
+                      {p.cpu.toFixed(1)}
+                    </td>
+                    <td className="py-1 text-right font-mono text-zinc-600 dark:text-zinc-400">
+                      {p.mem.toFixed(1)}
+                    </td>
+                    <td
+                      className="truncate py-1 font-mono text-zinc-900 dark:text-zinc-100"
+                      title={p.command}
+                    >
                       {p.command}
                     </td>
                   </tr>

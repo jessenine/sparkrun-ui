@@ -5,10 +5,7 @@ const HEADER = "target size used avail pcent";
 
 describe("parseDfOutput", () => {
   it("parses df lines into GB-rounded disk entries", () => {
-    const stdout = [
-      HEADER,
-      "/ 107374182400 53687091200 32212254720 50%",
-    ].join("\n");
+    const stdout = [HEADER, "/ 107374182400 53687091200 32212254720 50%"].join("\n");
     const out = parseDfOutput(stdout);
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({

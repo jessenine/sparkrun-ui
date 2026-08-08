@@ -58,7 +58,8 @@ function inferModelCategory(model: string, description: string = ""): string {
   if (/coder|code.?gen|codellama|deepseek.?coder/.test(text)) return "coding";
 
   // Reasoning / thinking
-  if (/reason|thinking|op-?1|o1|o3|claude.*reason|reasoning|chain.?of.?thought/.test(text)) return "reasoning";
+  if (/reason|thinking|op-?1|o1|o3|claude.*reason|reasoning|chain.?of.?thought/.test(text))
+    return "reasoning";
 
   // Vision-language (VL / multimodal)
   if (/vl-?\b|vision.?language|multi.?modal/.test(text)) return "vision";
@@ -155,7 +156,10 @@ async function collectVram(
   recipeNames: string[],
   signal?: AbortSignal,
 ): Promise<Record<string, { vram: z.infer<typeof VramSchema> | null; vramError: string | null }>> {
-  const results: Record<string, { vram: z.infer<typeof VramSchema> | null; vramError: string | null }> = {};
+  const results: Record<
+    string,
+    { vram: z.infer<typeof VramSchema> | null; vramError: string | null }
+  > = {};
 
   async function fetchOne(name: string): Promise<void> {
     if (signal?.aborted) return;
@@ -198,7 +202,10 @@ export const listExtended = os
     const abortController = new AbortController();
     signal?.addEventListener("abort", () => abortController.abort(), { once: true });
 
-    const vramMap = await collectVram(recipes.map((r) => r.name), abortController.signal);
+    const vramMap = await collectVram(
+      recipes.map((r) => r.name),
+      abortController.signal,
+    );
 
     return recipes.map((r) => {
       const vr = vramMap[r.name] ?? { vram: null, vramError: "not found" };

@@ -20,7 +20,12 @@ const JobsListSchema = z.object({
 export function mapStatusToJobs(status: ClusterStatus): Job[] {
   return [
     ...Object.entries(status.groups).map(([clusterId, group]: [string, unknown]) => {
-      const g = group as { cluster_id?: string; meta?: { recipe?: string; port?: number }; hosts?: string[]; containers?: { status?: string }[] };
+      const g = group as {
+        cluster_id?: string;
+        meta?: { recipe?: string; port?: number };
+        hosts?: string[];
+        containers?: { status?: string }[];
+      };
       return {
         cluster_id: clusterId,
         recipe: g.meta?.recipe,

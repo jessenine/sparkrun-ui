@@ -3,7 +3,7 @@ import { Card } from "@/app/components/ui/Card";
 
 /**
  * SparklineGraph - A lightweight sparkline component for metrics
- * 
+ *
  * Displays a line chart showing historical trends for a single metric.
  * Uses simple SVG paths for rendering, no external dependencies.
  */
@@ -24,9 +24,7 @@ export function SparklineGraph({
     return (
       <div className="flex flex-col gap-1.5">
         {showLabel && (
-          <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-500">
-            {title}
-          </div>
+          <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-500">{title}</div>
         )}
         <div className="h-16 w-full rounded bg-zinc-100 dark:bg-zinc-800" />
         <div className="text-[11px] text-zinc-500 dark:text-zinc-400">No data yet</div>
@@ -70,7 +68,9 @@ export function SparklineGraph({
     <div className="flex flex-col gap-1.5">
       {showLabel && (
         <div className="flex items-center justify-between">
-          <div className={`flex items-center gap-1.5 text-xs font-medium ${theme.stroke.replace("stroke-", "text-")}`}>
+          <div
+            className={`flex items-center gap-1.5 text-xs font-medium ${theme.stroke.replace("stroke-", "text-")}`}
+          >
             {title}
           </div>
           {data.length > 2 && (
@@ -109,7 +109,9 @@ export function SparklineGraph({
         </svg>
       </div>
       <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
-        Min: {min.toFixed(1)}{unit} • Max: {max.toFixed(1)}{unit}
+        Min: {min.toFixed(1)}
+        {unit} • Max: {max.toFixed(1)}
+        {unit}
       </div>
     </div>
   );

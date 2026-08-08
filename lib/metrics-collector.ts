@@ -126,22 +126,20 @@ export async function collectMetrics(): Promise<void> {
 
   isCollecting = true;
   try {
-    
     // Collect monitor metrics using runSparkrunText with timeout
     // The output is NDJSON - one JSON object per line for each snapshot
     let monitorResult: MonitorMetrics[] = [];
     try {
-      const result = await runSparkrunText(
-        ["cluster", "monitor", "--json", "--interval", "1"],
-        { timeoutMs: 3000 },
-      );
-      
+      const result = await runSparkrunText(["cluster", "monitor", "--json", "--interval", "1"], {
+        timeoutMs: 3000,
+      });
+
       // Parse NDJSON output (multiple JSON objects, one per line)
       monitorResult = parseMetricNdjson(result.stdout) as MonitorMetrics[];
     } catch {
       // Silently continue on error
     }
-    
+
     if (monitorResult.length > 0) {
       monitorCache.set(monitorResult);
     }
