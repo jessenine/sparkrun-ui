@@ -6,12 +6,13 @@ Session state and workflow tracking for bigpowers.
 
 ```yaml
 workflow_mode: solo-git  # team-pr | solo-git (default)
-active_flow: release     # PR #2 coverage merged; 3 monitor-agent bugs landed
-# STATUS (2026-08-08): PR #2 (feat/add-missing-tests) merged via squash 6c39310 -> main, format:ci made green (pinned prettier 3.8.3 + prettierignore).
-# 3 bugs (host filter, agent hostname/ip, top-process CPU%/mem%) landed on main via fix/land-monitor-agent-metrics.
+active_flow: null         # PR #2 + PR #3 merged; all bug work landed
+# STATUS (2026-08-08): PR #2 (coverage 80%) merged squash 6c39310; PR #3 (3 monitor bug fixes) merged squash 7fa07bd.
+# 3 bugs fixed: host filter (A), agent hostname/ip display (B), top-process CPU%/mem% (C). format:ci green (pinned prettier 3.8.3 + prettierignore);
+# agent-build ARM64 workflow fixed (added agent Dockerfile, dropped unused axum-server/tower/http-body-util deps).
 git:
   branch: main
-  commit: 6c39310        # + landing branch fix/land-monitor-agent-metrics
+  commit: 7fa07bd
   status: clean          # clean | dirty
   origin: "https://github.com/jessenine/sparkrun-ui.git"
 handoff:
