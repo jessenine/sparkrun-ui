@@ -1,6 +1,6 @@
 import { describe, expect, it, afterAll } from "vitest";
 import { writeDraft, deleteDraft } from "./draft";
-import { readFileSync, existsSync, rmSync, mkdirSync } from "node:fs";
+import { readFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 // Use a test-specific directory to avoid polluting the real DRAFT_DIR

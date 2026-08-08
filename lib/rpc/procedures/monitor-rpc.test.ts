@@ -1,11 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-// Mock streamSparkrunNdjson before importing the module
-vi.mock("@/lib/sparkrun", () => ({
-  streamSparkrunNdjson: vi.fn(),
-}));
-
-import { streamSparkrunNdjson } from "@/lib/sparkrun";
 import { normalizeMonitorOutput } from "./monitor";
 
 describe("monitor RPC procedures (SC-P0-32, SC-P0-33)", () => {

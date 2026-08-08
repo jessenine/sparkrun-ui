@@ -138,7 +138,7 @@ export async function collectMetrics(): Promise<void> {
       
       // Parse NDJSON output (multiple JSON objects, one per line)
       monitorResult = parseMetricNdjson(result.stdout) as MonitorMetrics[];
-    } catch (err: any) {
+    } catch {
       // Silently continue on error
     }
     
